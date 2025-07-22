@@ -265,5 +265,5 @@ __pycache__/
 
 holidaybook.sln
 
-# Static generator test data
-StaticGenerator/test-data.json
+# Static generator output (should be generated in root docs/ instead)  
+StaticGenerator/docs/
