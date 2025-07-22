@@ -44,7 +44,7 @@ namespace HolidayBook.StaticGenerator
                 Console.WriteLine($"Fetched {data.Result.Results.Length} holiday records");
 
                 // Create output directory
-                var outputDir = "docs";
+                var outputDir = "../docs";
                 if (Directory.Exists(outputDir))
                 {
                     Directory.Delete(outputDir, true);
