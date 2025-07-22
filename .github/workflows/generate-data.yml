@@ -11,6 +11,10 @@ on:
       - 'StaticGenerator/**'
       - '.github/workflows/generate-data.yml'
 
+# Grant GITHUB_TOKEN the permissions required to push to the repository
+permissions:
+  contents: write
+
 jobs:
   generate-data:
     runs-on: ubuntu-latest
