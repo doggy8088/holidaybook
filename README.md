@@ -11,6 +11,14 @@
 - 格式: `https://doggy8088.github.io/holidaybook/{YYYY-MM-DD}.json`
 - 範例: `https://doggy8088.github.io/holidaybook/2025-07-20.json`
 
+## Migration Notice
+
+⚠️ **This project has been migrated from Azure Function App to GitHub Pages static site!**
+
+### URL Changes
+- **Old URL**: `https://holidaybook.azurewebsites.net/api/checkholiday?code=will.fans&date=2025-07-20`
+- **New URL**: `https://doggy8088.github.io/holidaybook/2025-07-20.json`
+
 ### 使用方式
 
 - Example
