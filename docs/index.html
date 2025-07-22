@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taiwan Holiday API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { color: #333; }
+        h2 { color: #666; }
+        .example {
+            background: #f4f4f4;
+            padding: 15px;
+            border-left: 4px solid #007cba;
+            margin: 20px 0;
+        }
+        code {
+            background: #f8f8f8;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .url-format {
+            font-size: 1.2em;
+            color: #007cba;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🇹🇼 Taiwan Holiday API</h1>
+    
+    <p>提供台灣假日資訊的靜態 JSON API 服務，資料來源為臺北市政府行政機關辦公日曆表。</p>
+
+    <h2>📖 使用方式</h2>
+    
+    <div class="example">
+        <p><strong>API 格式:</strong></p>
+        <p class="url-format">https://doggy8088.github.io/holidaybook/{YYYY-MM-DD}.json</p>
+    </div>
+
+    <h3>範例</h3>
+    
+    <div class="example">
+        <p><strong>查詢 2024 年 1 月 1 日:</strong></p>
+        <p><a href="./2024-01-01.json" target="_blank">https://doggy8088.github.io/holidaybook/2024-01-01.json</a></p>
+    </div>
+
+    <h3>命令列使用</h3>
+    
+    <pre><code># 查詢特定日期
+curl -s "https://doggy8088.github.io/holidaybook/2024-01-01.json"
+
+# 查詢今天
+curl -s "https://doggy8088.github.io/holidaybook/$(date -I).json"</code></pre>
+
+    <h2>📄 回應格式</h2>
+    
+    <pre><code>{
+  "_id": 1317,
+  "date": "20240101",
+  "name": "中華民國開國紀念日",
+  "isHoliday": 1,
+  "holidaycategory": "放假之紀念日及節日",
+  "description": "全國各機關學校放假一日。"
+}</code></pre>
+
+    <h3>欄位說明</h3>
+    <ul>
+        <li><code>_id</code>: 記錄 ID</li>
+        <li><code>date</code>: 日期 (YYYYMMDD 格式)</li>
+        <li><code>name</code>: 假日名稱</li>
+        <li><code>isHoliday</code>: 是否為假日 (1=是, 0=否)</li>
+        <li><code>holidaycategory</code>: 假日類別</li>
+        <li><code>description</code>: 假日說明</li>
+    </ul>
+
+    <h2>🔄 資料更新</h2>
+    <ul>
+        <li>資料每日透過 GitHub Actions 自動更新</li>
+        <li>資料範圍：從 2024-01-01 開始，涵蓋未來 2 年</li>
+        <li>資料來源：<a href="https://data.taipei/dataset/detail?id=c30ca421-d935-4faa-b523-9c175c8de738" target="_blank">臺北市政府行政機關辦公日曆表</a></li>
+    </ul>
+
+    <h2>⚠️ 注意事項</h2>
+    <ul>
+        <li><strong>軍人節</strong>：只有軍人才放假，本 API 已將軍人節設定為非假日</li>
+        <li><strong>勞動節</strong>：只有勞工才放假</li>
+    </ul>
+
+    <h2>📂 原始碼</h2>
+    <p>GitHub Repository: <a href="https://github.com/doggy8088/holidaybook" target="_blank">doggy8088/holidaybook</a></p>
+
+    <script>
+        // Simple date input for testing
+        document.addEventListener('DOMContentLoaded', function() {
+            const testSection = document.createElement('div');
+            testSection.innerHTML = `
+                <h2>🧪 線上測試</h2>
+                <div class="example">
+                    <label for="dateInput">選擇日期：</label>
+                    <input type="date" id="dateInput" value="${new Date().toISOString().split('T')[0]}">
+                    <button onclick="testDate()">查詢</button>
+                    <div id="result" style="margin-top: 10px;"></div>
+                </div>
+            `;
+            document.body.appendChild(testSection);
+        });
+
+        function testDate() {
+            const date = document.getElementById('dateInput').value;
+            const url = `https://doggy8088.github.io/holidaybook/${date}.json`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = `
+                        <strong>結果：</strong><br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = `
+                        <strong style="color: red;">錯誤：</strong> ${error.message}
+                    `;
+                });
+        }
+    </script>
+</body>
+</html>

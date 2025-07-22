@@ -264,3 +264,6 @@ __pycache__/
 *.pyc
 
 holidaybook.sln
+
+# Static generator test data
+StaticGenerator/test-data.json

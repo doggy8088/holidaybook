@@ -1,0 +1,82 @@
+name: Generate Holiday Data
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (10 AM Taiwan time)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches: [ master ]
+    paths: 
+      - 'StaticGenerator/**'
+      - '.github/workflows/generate-data.yml'
+
+jobs:
+  generate-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build static generator
+        run: |
+          cd StaticGenerator
+          dotnet build --configuration Release
+
+      - name: Generate holiday data
+        id: generate
+        run: |
+          cd StaticGenerator
+          dotnet run --configuration Release
+          echo "generation_successful=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Commit and push changes
+        if: steps.generate.outputs.generation_successful == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-update holiday data - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            git push
+          fi
+
+      - name: Send error notification
+        if: steps.generate.outputs.generation_successful != 'true'
+        run: |
+          if [ -n "${{ secrets.SENDGRID_API_KEY }}" ] && [ -n "${{ secrets.NOTIFICATION_EMAIL }}" ]; then
+            curl -X "POST" "https://api.sendgrid.com/v3/mail/send" \
+              -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "personalizations": [
+                  {
+                    "to": [{"email": "${{ secrets.NOTIFICATION_EMAIL }}"}],
+                    "subject": "❌ Holiday Data Generation Failed"
+                  }
+                ],
+                "from": {"email": "${{ secrets.FROM_EMAIL || 'noreply@github.com' }}"},
+                "content": [
+                  {
+                    "type": "text/html",
+                    "value": "<h2>❌ Holiday Data Generation Failed</h2><p><strong>Repository:</strong> ${{ github.repository }}</p><p><strong>Workflow:</strong> ${{ github.workflow }}</p><p><strong>Run ID:</strong> ${{ github.run_id }}</p><p><strong>Time:</strong> $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")</p><p><strong>Details:</strong> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View workflow run</a></p>"
+                  }
+                ]
+              }'
+            echo "Error notification email sent"
+          else
+            echo "SendGrid API key or notification email not configured, skipping email notification"
+          fi
