@@ -7,8 +7,4 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="../Models/Holiday.cs" />
-  </ItemGroup>
-
 </Project>
