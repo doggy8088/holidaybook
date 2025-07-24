@@ -8,8 +8,24 @@
 
 查詢特定日期的假期資訊，只需要訪問對應的 JSON 檔案：
 
+### 單日查詢
+
 - 格式: `https://doggy8088.github.io/holidaybook/{YYYY-MM-DD}.json`
 - 範例: `https://doggy8088.github.io/holidaybook/2025-07-20.json`
+
+### 月份查詢
+
+查詢特定月份的所有假期資訊：
+
+- 格式: `https://doggy8088.github.io/holidaybook/{YYYY-MM}.json`
+- 範例: `https://doggy8088.github.io/holidaybook/2024-01.json`
+
+### 年度查詢
+
+查詢特定年度的所有假期資訊：
+
+- 格式: `https://doggy8088.github.io/holidaybook/{YYYY}.json`
+- 範例: `https://doggy8088.github.io/holidaybook/2024.json`
 
 ## Migration Notice
 
@@ -21,19 +37,33 @@
 
 ### 使用方式
 
-- Example
+#### 單日查詢
 
-    ```sh
-    curl -s "https://doggy8088.github.io/holidaybook/2024-01-01.json"
-    ```
+```sh
+curl -s "https://doggy8088.github.io/holidaybook/2024-01-01.json"
+```
 
-- Bash (今天)
+#### 月份查詢
 
-    ```sh
-    curl -s "https://doggy8088.github.io/holidaybook/$(date -I).json"
-    ```
+```sh
+curl -s "https://doggy8088.github.io/holidaybook/2024-01.json"
+```
+
+#### 年度查詢
+
+```sh
+curl -s "https://doggy8088.github.io/holidaybook/2024.json"
+```
+
+#### Bash (今天)
+
+```sh
+curl -s "https://doggy8088.github.io/holidaybook/$(date -I).json"
+```
 
 ### 回應格式
+
+#### 單日查詢回應格式
 
 ```json
 {
@@ -44,6 +74,31 @@
   "holidaycategory": "放假之紀念日及節日",
   "description": "全國各機關學校放假一日。"
 }
+```
+
+#### 月份與年度查詢回應格式
+
+月份和年度查詢回傳一個陣列，包含該期間內所有日期的假期資訊：
+
+```json
+[
+  {
+    "_id": 1317,
+    "date": "20240101",
+    "name": "中華民國開國紀念日",
+    "isHoliday": 1,
+    "holidaycategory": "放假之紀念日及節日",
+    "description": "全國各機關學校放假一日。"
+  },
+  {
+    "_id": 0,
+    "date": "20240102",
+    "name": "",
+    "isHoliday": 0,
+    "holidaycategory": "",
+    "description": ""
+  }
+]
 ```
 
 ## Remark
