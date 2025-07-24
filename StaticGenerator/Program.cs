@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace HolidayBook.StaticGenerator
 {
@@ -56,6 +58,8 @@ namespace HolidayBook.StaticGenerator
                 var endDate = DateTime.Now.AddYears(2); // Generate data for next 2 years
                 
                 var generatedCount = 0;
+                var allItems = new List<ResultElement>();
+                
                 for (var date = startDate; date <= endDate; date = date.AddDays(1))
                 {
                     var dateString = date.ToString("yyyyMMdd");
@@ -87,13 +91,20 @@ namespace HolidayBook.StaticGenerator
                         }
                     }
 
+                    // Add to collection for monthly/yearly aggregation
+                    allItems.Add(item);
+
                     // Generate JSON file
                     var itemJson = item.ToJson();
                     await File.WriteAllTextAsync(filePath, itemJson);
                     generatedCount++;
                 }
 
-                Console.WriteLine($"Generated {generatedCount} JSON files in '{outputDir}' directory");
+                Console.WriteLine($"Generated {generatedCount} daily JSON files in '{outputDir}' directory");
+                
+                // Generate monthly and yearly aggregated files
+                await GenerateMonthlyFiles(outputDir, allItems);
+                await GenerateYearlyFiles(outputDir, allItems);
                 Console.WriteLine("Static generation completed successfully!");
             }
             catch (Exception ex)
@@ -102,6 +113,56 @@ namespace HolidayBook.StaticGenerator
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Environment.Exit(1);
             }
+        }
+
+        private static async Task GenerateMonthlyFiles(string outputDir, List<ResultElement> allItems)
+        {
+            Console.WriteLine("Generating monthly aggregated files...");
+            
+            var monthlyGroups = allItems
+                .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).ToString("yyyy-MM"))
+                .ToList();
+            
+            var monthlyCount = 0;
+            foreach (var monthGroup in monthlyGroups)
+            {
+                var monthKey = monthGroup.Key; // Format: "2024-01"
+                var monthItems = monthGroup.OrderBy(item => item.Date).ToArray();
+                
+                var fileName = $"{monthKey}.json";
+                var filePath = Path.Combine(outputDir, fileName);
+                
+                var monthlyJson = JsonSerializer.Serialize(monthItems, Converter.Settings);
+                await File.WriteAllTextAsync(filePath, monthlyJson);
+                monthlyCount++;
+            }
+            
+            Console.WriteLine($"Generated {monthlyCount} monthly JSON files");
+        }
+        
+        private static async Task GenerateYearlyFiles(string outputDir, List<ResultElement> allItems)
+        {
+            Console.WriteLine("Generating yearly aggregated files...");
+            
+            var yearlyGroups = allItems
+                .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).Year)
+                .ToList();
+            
+            var yearlyCount = 0;
+            foreach (var yearGroup in yearlyGroups)
+            {
+                var year = yearGroup.Key;
+                var yearItems = yearGroup.OrderBy(item => item.Date).ToArray();
+                
+                var fileName = $"{year}.json";
+                var filePath = Path.Combine(outputDir, fileName);
+                
+                var yearlyJson = JsonSerializer.Serialize(yearItems, Converter.Settings);
+                await File.WriteAllTextAsync(filePath, yearlyJson);
+                yearlyCount++;
+            }
+            
+            Console.WriteLine($"Generated {yearlyCount} yearly JSON files");
         }
 
         private static string GetDayOfWeekCategory(DateTime date)
