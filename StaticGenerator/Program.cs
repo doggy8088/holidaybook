@@ -3,15 +3,47 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using HolidayBook.StaticGenerator.Configuration;
 using HolidayBook.StaticGenerator.Models;
+using System.Net;
+using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Authentication;
 
 namespace HolidayBook.StaticGenerator;
 
 class Program
 {
-    private static readonly HttpClient _httpClient = new HttpClient() 
-    { 
+    private static SocketsHttpHandler handler = new SocketsHttpHandler
+    {
+        // A. 只挑 IPv4 位址
+        ConnectCallback = async (ctx, token) =>
+        {
+            var v4 = (await Dns.GetHostAddressesAsync(ctx.DnsEndPoint.Host, token))
+                     .First(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            await socket.ConnectAsync(v4, ctx.DnsEndPoint.Port, token);
+            return new NetworkStream(socket, ownsSocket: true);
+        },
+
+        // B. 鎖 TLS 1.2/1.3，避免老舊 cipher
+        SslOptions = new SslClientAuthenticationOptions
+        {
+            EnabledSslProtocols = SslProtocols.Tls13 | SslProtocols.Tls12,
+            ApplicationProtocols = new List<SslApplicationProtocol>
+            {
+                SslApplicationProtocol.Http11            // C. 不談 HTTP/2
+            }
+        },
+
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5) // 避免 stale 連線
+    };
+
+    private static readonly HttpClient _httpClient = new HttpClient(handler)
+    {
+        DefaultRequestVersion = HttpVersion.Version11,
+        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact,
         Timeout = TimeSpan.FromMinutes(2) // Set reasonable timeout
     };
+
     private static ILogger<Program>? _logger;
     private static AppSettings? _settings;
 
@@ -24,7 +56,7 @@ class Program
             .Build();
 
         _settings = configuration.Get<AppSettings>() ?? throw new InvalidOperationException("Failed to load configuration");
-        
+
         // Validate configuration
         ValidateConfiguration(_settings);
 
@@ -80,14 +112,14 @@ class Program
             throw new InvalidOperationException("Settings or logger not initialized");
 
         _logger.LogInformation("Fetching data from: {Url}", _settings.DataSource.ApiUrl);
-        
+
         string? json = null;
         const int maxRetries = 3;
         const int delayMs = 1000;
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            try 
+            try
             {
                 json = await _httpClient.GetStringAsync(_settings.DataSource.ApiUrl);
                 _logger.LogInformation("Successfully fetched data from API on attempt {Attempt}", attempt);
@@ -95,7 +127,7 @@ class Program
             }
             catch (Exception ex) when (attempt < maxRetries)
             {
-                _logger.LogWarning(ex, "API fetch attempt {Attempt} failed: {Message}. Retrying in {Delay}ms...", 
+                _logger.LogWarning(ex, "API fetch attempt {Attempt} failed: {Message}. Retrying in {Delay}ms...",
                     attempt, ex.Message, delayMs * attempt);
                 await Task.Delay(delayMs * attempt);
                 continue;
@@ -103,7 +135,7 @@ class Program
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch from API after {MaxRetries} attempts: {Message}", maxRetries, ex.Message);
-                
+
                 // Fallback to test data for development
                 if (File.Exists(_settings.DataSource.TestDataPath))
                 {
@@ -122,7 +154,7 @@ class Program
         {
             throw new InvalidOperationException("No data was successfully retrieved from API or fallback sources");
         }
-        
+
         var data = Holiday.FromJson(json);
         if (data?.Result?.Results == null || data.Result.Results.Length == 0)
         {
@@ -152,7 +184,7 @@ class Program
 
         var generatedCount = 0;
         var allItems = new List<ResultElement>();
-        
+
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
             var dateString = date.ToString("yyyyMMdd");
@@ -193,90 +225,90 @@ class Program
             generatedCount++;
         }
 
-        _logger.LogInformation("Generated {Count} daily JSON files in '{Directory}' directory", 
+        _logger.LogInformation("Generated {Count} daily JSON files in '{Directory}' directory",
             generatedCount, _settings.Generation.OutputDirectory);
-        
+
         return allItems;
     }
 
-        private static async Task GenerateMonthlyFiles(string outputDir, List<ResultElement> allItems)
-        {
-            if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+    private static async Task GenerateMonthlyFiles(string outputDir, List<ResultElement> allItems)
+    {
+        if (_logger == null) throw new InvalidOperationException("Logger not initialized");
 
-            _logger.LogInformation("Generating monthly aggregated files...");
-            
-            var monthlyGroups = allItems
-                .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).ToString("yyyy-MM"))
-                .ToList();
-            
-            var monthlyCount = 0;
-            foreach (var monthGroup in monthlyGroups)
-            {
-                var monthKey = monthGroup.Key; // Format: "2024-01"
-                var monthItems = monthGroup.OrderBy(item => item.Date).ToArray();
-                
-                var fileName = $"{monthKey}.json";
-                var filePath = Path.Combine(outputDir, fileName);
-                
-                var monthlyJson = JsonSerializer.Serialize(monthItems, Converter.Settings);
-                await File.WriteAllTextAsync(filePath, monthlyJson);
-                monthlyCount++;
-            }
-            
-            _logger.LogInformation("Generated {Count} monthly JSON files", monthlyCount);
-        }
-        
-        private static async Task GenerateYearlyFiles(string outputDir, List<ResultElement> allItems)
-        {
-            if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+        _logger.LogInformation("Generating monthly aggregated files...");
 
-            _logger.LogInformation("Generating yearly aggregated files...");
-            
-            var yearlyGroups = allItems
-                .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).Year)
-                .ToList();
-            
-            var yearlyCount = 0;
-            foreach (var yearGroup in yearlyGroups)
-            {
-                var year = yearGroup.Key;
-                var yearItems = yearGroup.OrderBy(item => item.Date).ToArray();
-                
-                var fileName = $"{year}.json";
-                var filePath = Path.Combine(outputDir, fileName);
-                
-                var yearlyJson = JsonSerializer.Serialize(yearItems, Converter.Settings);
-                await File.WriteAllTextAsync(filePath, yearlyJson);
-                yearlyCount++;
-            }
-            
-            _logger.LogInformation("Generated {Count} yearly JSON files", yearlyCount);
+        var monthlyGroups = allItems
+            .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).ToString("yyyy-MM"))
+            .ToList();
+
+        var monthlyCount = 0;
+        foreach (var monthGroup in monthlyGroups)
+        {
+            var monthKey = monthGroup.Key; // Format: "2024-01"
+            var monthItems = monthGroup.OrderBy(item => item.Date).ToArray();
+
+            var fileName = $"{monthKey}.json";
+            var filePath = Path.Combine(outputDir, fileName);
+
+            var monthlyJson = JsonSerializer.Serialize(monthItems, Converter.Settings);
+            await File.WriteAllTextAsync(filePath, monthlyJson);
+            monthlyCount++;
         }
 
-        private static string GetDayOfWeekCategory(DateTime date)
-        {
-            return date.DayOfWeek switch
-            {
-                DayOfWeek.Saturday or DayOfWeek.Sunday => "星期六、星期日",
-                _ => ""
-            };
-        }
-
-        private static void ValidateConfiguration(AppSettings settings)
-        {
-            if (string.IsNullOrWhiteSpace(settings.DataSource.ApiUrl))
-                throw new ArgumentException("DataSource.ApiUrl is required in configuration");
-            
-            if (string.IsNullOrWhiteSpace(settings.Generation.OutputDirectory))
-                throw new ArgumentException("Generation.OutputDirectory is required in configuration");
-            
-            if (string.IsNullOrWhiteSpace(settings.Generation.StartDate))
-                throw new ArgumentException("Generation.StartDate is required in configuration");
-            
-            if (!DateTime.TryParse(settings.Generation.StartDate, out _))
-                throw new ArgumentException($"Generation.StartDate '{settings.Generation.StartDate}' is not a valid date");
-            
-            if (settings.Generation.YearsToGenerate <= 0)
-                throw new ArgumentException("Generation.YearsToGenerate must be greater than 0");
-        }
+        _logger.LogInformation("Generated {Count} monthly JSON files", monthlyCount);
     }
+
+    private static async Task GenerateYearlyFiles(string outputDir, List<ResultElement> allItems)
+    {
+        if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+
+        _logger.LogInformation("Generating yearly aggregated files...");
+
+        var yearlyGroups = allItems
+            .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).Year)
+            .ToList();
+
+        var yearlyCount = 0;
+        foreach (var yearGroup in yearlyGroups)
+        {
+            var year = yearGroup.Key;
+            var yearItems = yearGroup.OrderBy(item => item.Date).ToArray();
+
+            var fileName = $"{year}.json";
+            var filePath = Path.Combine(outputDir, fileName);
+
+            var yearlyJson = JsonSerializer.Serialize(yearItems, Converter.Settings);
+            await File.WriteAllTextAsync(filePath, yearlyJson);
+            yearlyCount++;
+        }
+
+        _logger.LogInformation("Generated {Count} yearly JSON files", yearlyCount);
+    }
+
+    private static string GetDayOfWeekCategory(DateTime date)
+    {
+        return date.DayOfWeek switch
+        {
+            DayOfWeek.Saturday or DayOfWeek.Sunday => "星期六、星期日",
+            _ => ""
+        };
+    }
+
+    private static void ValidateConfiguration(AppSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.DataSource.ApiUrl))
+            throw new ArgumentException("DataSource.ApiUrl is required in configuration");
+
+        if (string.IsNullOrWhiteSpace(settings.Generation.OutputDirectory))
+            throw new ArgumentException("Generation.OutputDirectory is required in configuration");
+
+        if (string.IsNullOrWhiteSpace(settings.Generation.StartDate))
+            throw new ArgumentException("Generation.StartDate is required in configuration");
+
+        if (!DateTime.TryParse(settings.Generation.StartDate, out _))
+            throw new ArgumentException($"Generation.StartDate '{settings.Generation.StartDate}' is not a valid date");
+
+        if (settings.Generation.YearsToGenerate <= 0)
+            throw new ArgumentException("Generation.YearsToGenerate must be greater than 0");
+    }
+}
