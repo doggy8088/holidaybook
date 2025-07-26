@@ -142,9 +142,9 @@ internal class IsholidayConverter : JsonConverter<IsHoliday>
 public class DateOnlyConverter : JsonConverter<DateOnly>
 {
 	private readonly string serializationFormat;
-	public DateOnlyConverter() : this(null) { }
+	public DateOnlyConverter() : this(default(string)) { }
 
-	public DateOnlyConverter(string serializationFormat)
+	public DateOnlyConverter(string? serializationFormat)
 	{
 		this.serializationFormat = serializationFormat ?? "yyyy-MM-dd";
 	}
@@ -162,9 +162,9 @@ public class TimeOnlyConverter : JsonConverter<TimeOnly>
 {
 	private readonly string serializationFormat;
 
-	public TimeOnlyConverter() : this(null) { }
+	public TimeOnlyConverter() : this(default(string)) { }
 
-	public TimeOnlyConverter(string serializationFormat)
+	public TimeOnlyConverter(string? serializationFormat)
 	{
 		this.serializationFormat = serializationFormat ?? "HH:mm:ss.fff";
 	}

@@ -8,7 +8,10 @@ namespace HolidayBook.StaticGenerator;
 
 class Program
 {
-    private static readonly HttpClient _httpClient = new HttpClient();
+    private static readonly HttpClient _httpClient = new HttpClient() 
+    { 
+        Timeout = TimeSpan.FromMinutes(2) // Set reasonable timeout
+    };
     private static ILogger<Program>? _logger;
     private static AppSettings? _settings;
 
@@ -78,25 +81,46 @@ class Program
 
         _logger.LogInformation("Fetching data from: {Url}", _settings.DataSource.ApiUrl);
         
-        string json;
-        try 
+        string? json = null;
+        const int maxRetries = 3;
+        const int delayMs = 1000;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            json = await _httpClient.GetStringAsync(_settings.DataSource.ApiUrl);
+            try 
+            {
+                json = await _httpClient.GetStringAsync(_settings.DataSource.ApiUrl);
+                _logger.LogInformation("Successfully fetched data from API on attempt {Attempt}", attempt);
+                break;
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                _logger.LogWarning(ex, "API fetch attempt {Attempt} failed: {Message}. Retrying in {Delay}ms...", 
+                    attempt, ex.Message, delayMs * attempt);
+                await Task.Delay(delayMs * attempt);
+                continue;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch from API after {MaxRetries} attempts: {Message}", maxRetries, ex.Message);
+                
+                // Fallback to test data for development
+                if (File.Exists(_settings.DataSource.TestDataPath))
+                {
+                    _logger.LogInformation("Using fallback test data from: {Path}", _settings.DataSource.TestDataPath);
+                    json = await File.ReadAllTextAsync(_settings.DataSource.TestDataPath);
+                    break;
+                }
+                else
+                {
+                    throw new Exception($"Failed to fetch data from API after {maxRetries} attempts and no test data available: {ex.Message}");
+                }
+            }
         }
-        catch (Exception ex)
+
+        if (string.IsNullOrEmpty(json))
         {
-            _logger.LogWarning(ex, "Failed to fetch from API: {Message}", ex.Message);
-            
-            // Fallback to test data for development
-            if (File.Exists(_settings.DataSource.TestDataPath))
-            {
-                _logger.LogInformation("Using fallback test data from: {Path}", _settings.DataSource.TestDataPath);
-                json = await File.ReadAllTextAsync(_settings.DataSource.TestDataPath);
-            }
-            else
-            {
-                throw new Exception($"Failed to fetch data from API and no test data available: {ex.Message}");
-            }
+            throw new InvalidOperationException("No data was successfully retrieved from API or fallback sources");
         }
         
         var data = Holiday.FromJson(json);
