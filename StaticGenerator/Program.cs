@@ -1,123 +1,209 @@
 using System.Text.Json;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using HolidayBook.StaticGenerator.Configuration;
+using HolidayBook.StaticGenerator.Models;
 
-namespace HolidayBook.StaticGenerator
+namespace HolidayBook.StaticGenerator;
+
+class Program
 {
-    class Program
+    private static readonly HttpClient _httpClient = new HttpClient() 
+    { 
+        Timeout = TimeSpan.FromMinutes(2) // Set reasonable timeout
+    };
+    private static ILogger<Program>? _logger;
+    private static AppSettings? _settings;
+
+    static async Task Main(string[] args)
     {
-        private static readonly HttpClient _httpClient = new HttpClient();
+        // Setup configuration
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
 
-        static async Task Main(string[] args)
+        _settings = configuration.Get<AppSettings>() ?? throw new InvalidOperationException("Failed to load configuration");
+        
+        // Validate configuration
+        ValidateConfiguration(_settings);
+
+        // Setup logging
+        using var loggerFactory = LoggerFactory.Create(builder =>
+            builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        _logger = loggerFactory.CreateLogger<Program>();
+
+        _logger.LogInformation("Holiday Book Static Generator");
+        _logger.LogInformation("=============================");
+
+        try
         {
-            Console.WriteLine("Holiday Book Static Generator");
-            Console.WriteLine("=============================");
+            await GenerateHolidayData();
+            _logger.LogInformation("Static generation completed successfully!");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error: {Message}", ex.Message);
+            Environment.Exit(1);
+        }
+    }
 
-            try
+    private static async Task GenerateHolidayData()
+    {
+        if (_settings == null || _logger == null)
+            throw new InvalidOperationException("Settings or logger not initialized");
+
+        // Fetch data from API or fallback
+        var holidayData = await FetchHolidayDataAsync();
+        _logger.LogInformation("Fetched {Count} holiday records", holidayData.Result.Results.Length);
+
+        // Prepare output directory
+        PrepareOutputDirectory(_settings.Generation.OutputDirectory);
+
+        // Parse start date
+        if (!DateTime.TryParse(_settings.Generation.StartDate, out var startDate))
+        {
+            throw new ArgumentException($"Invalid start date format: {_settings.Generation.StartDate}");
+        }
+
+        var endDate = DateTime.Now.AddYears(_settings.Generation.YearsToGenerate);
+
+        // Generate files
+        var allItems = await GenerateDailyFiles(holidayData, startDate, endDate);
+        await GenerateMonthlyFiles(_settings.Generation.OutputDirectory, allItems);
+        await GenerateYearlyFiles(_settings.Generation.OutputDirectory, allItems);
+    }
+
+    private static async Task<Holiday> FetchHolidayDataAsync()
+    {
+        if (_settings == null || _logger == null)
+            throw new InvalidOperationException("Settings or logger not initialized");
+
+        _logger.LogInformation("Fetching data from: {Url}", _settings.DataSource.ApiUrl);
+        
+        string? json = null;
+        const int maxRetries = 3;
+        const int delayMs = 1000;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try 
             {
-                // Fetch data from Taipei API
-                var url = "https://data.taipei/api/v1/dataset/964e936d-d971-4567-a467-aa67b930f98e?scope=resourceAquire&offset=1316&limit=1000";
-                Console.WriteLine($"Fetching data from: {url}");
-                
-                string json;
-                try 
-                {
-                    json = await _httpClient.GetStringAsync(url);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to fetch from API: {ex.Message}");
-                    
-                    // Fallback to test data for development
-                    var testDataPath = "test-data.json";
-                    if (File.Exists(testDataPath))
-                    {
-                        Console.WriteLine($"Using fallback test data from: {testDataPath}");
-                        json = await File.ReadAllTextAsync(testDataPath);
-                    }
-                    else
-                    {
-                        throw new Exception($"Failed to fetch data from API and no test data available: {ex.Message}");
-                    }
-                }
-                
-                var data = Holiday.FromJson(json);
-                
-                Console.WriteLine($"Fetched {data.Result.Results.Length} holiday records");
-
-                // Create output directory
-                var outputDir = "../docs";
-                if (Directory.Exists(outputDir))
-                {
-                    Directory.Delete(outputDir, true);
-                }
-                Directory.CreateDirectory(outputDir);
-
-                // Generate JSON file for each date starting from 2024-01-01
-                var startDate = new DateTime(2024, 1, 1);
-                var endDate = DateTime.Now.AddYears(2); // Generate data for next 2 years
-                
-                var generatedCount = 0;
-                var allItems = new List<ResultElement>();
-                
-                for (var date = startDate; date <= endDate; date = date.AddDays(1))
-                {
-                    var dateString = date.ToString("yyyyMMdd");
-                    var fileName = $"{date:yyyy-MM-dd}.json";
-                    var filePath = Path.Combine(outputDir, fileName);
-
-                    // Find matching holiday data
-                    var item = data.Result.Results.FirstOrDefault(p => p.Date == dateString);
-
-                    if (item == null)
-                    {
-                        // Create default non-holiday entry
-                        item = new ResultElement
-                        {
-                            Id = 0,
-                            Date = dateString,
-                            Name = "",
-                            IsHoliday = IsHoliday.否,
-                            Holidaycategory = GetDayOfWeekCategory(date),
-                            Description = ""
-                        };
-                    }
-                    else
-                    {
-                        // Handle special case: 軍人節 should not be a holiday for general public
-                        if (item.Name == "軍人節")
-                        {
-                            item.IsHoliday = IsHoliday.否;
-                        }
-                    }
-
-                    // Add to collection for monthly/yearly aggregation
-                    allItems.Add(item);
-
-                    // Generate JSON file
-                    var itemJson = item.ToJson();
-                    await File.WriteAllTextAsync(filePath, itemJson);
-                    generatedCount++;
-                }
-
-                Console.WriteLine($"Generated {generatedCount} daily JSON files in '{outputDir}' directory");
-                
-                // Generate monthly and yearly aggregated files
-                await GenerateMonthlyFiles(outputDir, allItems);
-                await GenerateYearlyFiles(outputDir, allItems);
-                Console.WriteLine("Static generation completed successfully!");
+                json = await _httpClient.GetStringAsync(_settings.DataSource.ApiUrl);
+                _logger.LogInformation("Successfully fetched data from API on attempt {Attempt}", attempt);
+                break;
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                _logger.LogWarning(ex, "API fetch attempt {Attempt} failed: {Message}. Retrying in {Delay}ms...", 
+                    attempt, ex.Message, delayMs * attempt);
+                await Task.Delay(delayMs * attempt);
+                continue;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                Environment.Exit(1);
+                _logger.LogWarning(ex, "Failed to fetch from API after {MaxRetries} attempts: {Message}", maxRetries, ex.Message);
+                
+                // Fallback to test data for development
+                if (File.Exists(_settings.DataSource.TestDataPath))
+                {
+                    _logger.LogInformation("Using fallback test data from: {Path}", _settings.DataSource.TestDataPath);
+                    json = await File.ReadAllTextAsync(_settings.DataSource.TestDataPath);
+                    break;
+                }
+                else
+                {
+                    throw new Exception($"Failed to fetch data from API after {maxRetries} attempts and no test data available: {ex.Message}");
+                }
             }
         }
 
+        if (string.IsNullOrEmpty(json))
+        {
+            throw new InvalidOperationException("No data was successfully retrieved from API or fallback sources");
+        }
+        
+        var data = Holiday.FromJson(json);
+        if (data?.Result?.Results == null || data.Result.Results.Length == 0)
+        {
+            throw new InvalidOperationException("No valid holiday data received from API");
+        }
+
+        return data;
+    }
+
+    private static void PrepareOutputDirectory(string outputDir)
+    {
+        if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+
+        if (Directory.Exists(outputDir))
+        {
+            _logger.LogInformation("Cleaning existing output directory: {Directory}", outputDir);
+            Directory.Delete(outputDir, true);
+        }
+        Directory.CreateDirectory(outputDir);
+        _logger.LogInformation("Created output directory: {Directory}", outputDir);
+    }
+
+    private static async Task<List<ResultElement>> GenerateDailyFiles(Holiday data, DateTime startDate, DateTime endDate)
+    {
+        if (_settings == null || _logger == null)
+            throw new InvalidOperationException("Settings or logger not initialized");
+
+        var generatedCount = 0;
+        var allItems = new List<ResultElement>();
+        
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var dateString = date.ToString("yyyyMMdd");
+            var fileName = $"{date:yyyy-MM-dd}.json";
+            var filePath = Path.Combine(_settings.Generation.OutputDirectory, fileName);
+
+            // Find matching holiday data
+            var item = data.Result.Results.FirstOrDefault(p => p.Date == dateString);
+
+            if (item == null)
+            {
+                // Create default non-holiday entry
+                item = new ResultElement
+                {
+                    Id = 0,
+                    Date = dateString,
+                    Name = "",
+                    IsHoliday = IsHoliday.否,
+                    Holidaycategory = GetDayOfWeekCategory(date),
+                    Description = ""
+                };
+            }
+            else
+            {
+                // Handle special case: 軍人節 should not be a holiday for general public
+                if (item.Name == "軍人節")
+                {
+                    item.IsHoliday = IsHoliday.否;
+                }
+            }
+
+            // Add to collection for monthly/yearly aggregation
+            allItems.Add(item);
+
+            // Generate JSON file
+            var itemJson = item.ToJson();
+            await File.WriteAllTextAsync(filePath, itemJson);
+            generatedCount++;
+        }
+
+        _logger.LogInformation("Generated {Count} daily JSON files in '{Directory}' directory", 
+            generatedCount, _settings.Generation.OutputDirectory);
+        
+        return allItems;
+    }
+
         private static async Task GenerateMonthlyFiles(string outputDir, List<ResultElement> allItems)
         {
-            Console.WriteLine("Generating monthly aggregated files...");
+            if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+
+            _logger.LogInformation("Generating monthly aggregated files...");
             
             var monthlyGroups = allItems
                 .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).ToString("yyyy-MM"))
@@ -137,12 +223,14 @@ namespace HolidayBook.StaticGenerator
                 monthlyCount++;
             }
             
-            Console.WriteLine($"Generated {monthlyCount} monthly JSON files");
+            _logger.LogInformation("Generated {Count} monthly JSON files", monthlyCount);
         }
         
         private static async Task GenerateYearlyFiles(string outputDir, List<ResultElement> allItems)
         {
-            Console.WriteLine("Generating yearly aggregated files...");
+            if (_logger == null) throw new InvalidOperationException("Logger not initialized");
+
+            _logger.LogInformation("Generating yearly aggregated files...");
             
             var yearlyGroups = allItems
                 .GroupBy(item => DateTime.ParseExact(item.Date, "yyyyMMdd", null).Year)
@@ -162,7 +250,7 @@ namespace HolidayBook.StaticGenerator
                 yearlyCount++;
             }
             
-            Console.WriteLine($"Generated {yearlyCount} yearly JSON files");
+            _logger.LogInformation("Generated {Count} yearly JSON files", yearlyCount);
         }
 
         private static string GetDayOfWeekCategory(DateTime date)
@@ -173,5 +261,22 @@ namespace HolidayBook.StaticGenerator
                 _ => ""
             };
         }
+
+        private static void ValidateConfiguration(AppSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.DataSource.ApiUrl))
+                throw new ArgumentException("DataSource.ApiUrl is required in configuration");
+            
+            if (string.IsNullOrWhiteSpace(settings.Generation.OutputDirectory))
+                throw new ArgumentException("Generation.OutputDirectory is required in configuration");
+            
+            if (string.IsNullOrWhiteSpace(settings.Generation.StartDate))
+                throw new ArgumentException("Generation.StartDate is required in configuration");
+            
+            if (!DateTime.TryParse(settings.Generation.StartDate, out _))
+                throw new ArgumentException($"Generation.StartDate '{settings.Generation.StartDate}' is not a valid date");
+            
+            if (settings.Generation.YearsToGenerate <= 0)
+                throw new ArgumentException("Generation.YearsToGenerate must be greater than 0");
+        }
     }
-}
