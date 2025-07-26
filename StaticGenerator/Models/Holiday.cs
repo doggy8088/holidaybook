@@ -2,10 +2,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+namespace HolidayBook.StaticGenerator.Models;
+
 public partial class Holiday
 {
 	[JsonPropertyName("result")]
-	public HolidayResult Result { get; set; }
+	public HolidayResult Result { get; set; } = null!;
 }
 
 public partial class HolidayResult
@@ -20,10 +22,10 @@ public partial class HolidayResult
 	public long Count { get; set; }
 
 	[JsonPropertyName("sort")]
-	public string Sort { get; set; }
+	public string Sort { get; set; } = string.Empty;
 
 	[JsonPropertyName("results")]
-	public ResultElement[] Results { get; set; }
+	public ResultElement[] Results { get; set; } = Array.Empty<ResultElement>();
 }
 
 public partial class ResultElement
@@ -32,19 +34,19 @@ public partial class ResultElement
 	public long Id { get; set; }
 
 	[JsonPropertyName("date")]
-	public string Date { get; set; }
+	public string Date { get; set; } = string.Empty;
 
 	[JsonPropertyName("name")]
-	public string Name { get; set; }
+	public string Name { get; set; } = string.Empty;
 
 	[JsonPropertyName("isHoliday")]
 	public IsHoliday IsHoliday { get; set; }
 
 	[JsonPropertyName("holidaycategory")]
-	public string Holidaycategory { get; set; }
+	public string Holidaycategory { get; set; } = string.Empty;
 
 	[JsonPropertyName("description")]
-	public string Description { get; set; }
+	public string Description { get; set; } = string.Empty;
 }
 
 public enum Timezone { AsiaTaipei };
@@ -53,7 +55,7 @@ public enum IsHoliday { 否, 是 };
 
 public partial class Holiday
 {
-	public static Holiday FromJson(string json) => JsonSerializer.Deserialize<Holiday>(json, Converter.Settings);
+	public static Holiday? FromJson(string json) => JsonSerializer.Deserialize<Holiday>(json, Converter.Settings);
 }
 
 public static class Serialize
@@ -140,9 +142,9 @@ internal class IsholidayConverter : JsonConverter<IsHoliday>
 public class DateOnlyConverter : JsonConverter<DateOnly>
 {
 	private readonly string serializationFormat;
-	public DateOnlyConverter() : this(null) { }
+	public DateOnlyConverter() : this(default(string)) { }
 
-	public DateOnlyConverter(string serializationFormat)
+	public DateOnlyConverter(string? serializationFormat)
 	{
 		this.serializationFormat = serializationFormat ?? "yyyy-MM-dd";
 	}
@@ -150,7 +152,7 @@ public class DateOnlyConverter : JsonConverter<DateOnly>
 	public override DateOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 	{
 		var value = reader.GetString();
-		return DateOnly.Parse(value!);
+		return DateOnly.Parse(value ?? string.Empty);
 	}
 
 	public override void Write(Utf8JsonWriter writer, DateOnly value, JsonSerializerOptions options)
@@ -160,9 +162,9 @@ public class TimeOnlyConverter : JsonConverter<TimeOnly>
 {
 	private readonly string serializationFormat;
 
-	public TimeOnlyConverter() : this(null) { }
+	public TimeOnlyConverter() : this(default(string)) { }
 
-	public TimeOnlyConverter(string serializationFormat)
+	public TimeOnlyConverter(string? serializationFormat)
 	{
 		this.serializationFormat = serializationFormat ?? "HH:mm:ss.fff";
 	}
@@ -170,7 +172,7 @@ public class TimeOnlyConverter : JsonConverter<TimeOnly>
 	public override TimeOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 	{
 		var value = reader.GetString();
-		return TimeOnly.Parse(value!);
+		return TimeOnly.Parse(value ?? string.Empty);
 	}
 
 	public override void Write(Utf8JsonWriter writer, TimeOnly value, JsonSerializerOptions options)

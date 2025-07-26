@@ -267,3 +267,7 @@ holidaybook.sln
 
 # Static generator test data
 StaticGenerator/test-data.json
+
+# Test coverage reports
+StaticGenerator.Tests/TestResults/
+StaticGenerator.Tests/coverage/

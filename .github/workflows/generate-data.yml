@@ -30,10 +30,30 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Cache .NET dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: |
+          cd StaticGenerator
+          dotnet restore
+          cd ../StaticGenerator.Tests
+          dotnet restore
+
       - name: Build static generator
         run: |
           cd StaticGenerator
-          dotnet build --configuration Release
+          dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: |
+          cd StaticGenerator.Tests
+          dotnet test --configuration Release --no-restore --verbosity normal
 
       - name: Generate holiday data
         id: generate
