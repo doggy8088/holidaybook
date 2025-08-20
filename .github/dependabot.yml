@@ -1,0 +1,49 @@
+version: 2
+updates:
+  # .NET packages
+  - package-ecosystem: "nuget"
+    directory: "/StaticGenerator"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "doggy8088"
+    assignees:
+      - "doggy8088"
+    commit-message:
+      prefix: "security"
+      include: "scope"
+    
+  # .NET test packages  
+  - package-ecosystem: "nuget"
+    directory: "/StaticGenerator.Tests"
+    schedule:
+      interval: "weekly"
+      day: "monday" 
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "doggy8088"
+    assignees:
+      - "doggy8088"
+    commit-message:
+      prefix: "security"
+      include: "scope"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "doggy8088"
+    assignees:
+      - "doggy8088"
+    commit-message:
+      prefix: "security"
+      include: "scope"
