@@ -45,6 +45,17 @@
 - 資料範圍：從 2024-01-01 開始，涵蓋未來 2 年
 - 如果 API 獲取失敗，會透過 SendGrid 發送錯誤通知郵件
 
+### GitHub Actions 設定
+
+為了讓資料更新後自動部署到 GitHub Pages，需要設定一個 Personal Access Token (PAT)：
+
+1. 前往 GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)
+2. 產生一個新的 token，勾選 `repo` 權限
+3. 在此專案的 Settings > Secrets and variables > Actions 中新增名為 `PAT` 的 secret
+4. 將產生的 token 填入 secret 值
+
+沒有 PAT 的話，`generate-data.yml` 工作流程推送變更後不會觸發 `deploy-pages.yml` 工作流程。
+
 ## Development
 
 ### 本地測試靜態產生器

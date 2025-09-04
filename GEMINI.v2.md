@@ -39,6 +39,8 @@ The generated files are:
 
 The project is deployed using GitHub Actions. The `.github/workflows/generate-data.yml` workflow runs daily, executes the `StaticGenerator`, and commits the updated JSON files to the `docs/` directory. The `.github/workflows/deploy-pages.yml` workflow then deploys the `docs/` directory to GitHub Pages.
 
+**Important**: For the deployment to work correctly, a Personal Access Token (PAT) with `repo` scope must be configured as a secret named `PAT`. This allows the `generate-data.yml` workflow to trigger the `deploy-pages.yml` workflow when changes are pushed to the `docs/` directory. Without the PAT, the default `GITHUB_TOKEN` won't trigger other workflows.
+
 ## Conventions
 
 - **Configuration**: All configuration is managed in `StaticGenerator/appsettings.json`. This includes API endpoints, output directories, and the date range for generation.

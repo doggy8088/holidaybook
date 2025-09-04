@@ -1,5 +1,9 @@
 name: Generate Holiday Data
 
+# NOTE: This workflow requires a Personal Access Token (PAT) with 'repo' scope
+# stored as a secret named 'PAT' to trigger the deploy-pages.yml workflow.
+# Without PAT, GITHUB_TOKEN won't trigger other workflows when pushing changes.
+
 on:
   schedule:
     # Run daily at 2 AM UTC (10 AM Taiwan time)
@@ -23,7 +27,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT to trigger other workflows when pushing changes
+          # Falls back to GITHUB_TOKEN if PAT is not available
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -75,6 +81,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Auto-update holiday data - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            # Push with PAT to trigger deploy-pages.yml workflow
             git push
           fi
 
