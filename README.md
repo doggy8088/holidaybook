@@ -18,14 +18,14 @@
 查詢特定月份的所有假期資訊：
 
 - 格式: `https://doggy8088.github.io/holidaybook/{YYYY-MM}.json`
-- 範例: `https://doggy8088.github.io/holidaybook/2024-01.json`
+- 範例: `https://doggy8088.github.io/holidaybook/2025-09.json`
 
 ### 年度查詢
 
 查詢特定年度的所有假期資訊：
 
 - 格式: `https://doggy8088.github.io/holidaybook/{YYYY}.json`
-- 範例: `https://doggy8088.github.io/holidaybook/2024.json`
+- 範例: `https://doggy8088.github.io/holidaybook/2025.json`
 
 ## Remark
 
@@ -42,7 +42,7 @@
 ## 資料更新
 
 - 資料每日透過 GitHub Actions 自動更新
-- 資料範圍：從 2024-01-01 開始，涵蓋未來 2 年
+- 資料範圍：從 2024-01-01 開始，涵蓋未來 3 年 (到 2026 年底)
 - 如果 API 獲取失敗，會透過 SendGrid 發送錯誤通知郵件
 
 ### GitHub Actions 設定
@@ -78,7 +78,7 @@
 
     ```sh
     ls docs/
-    cat docs/2024-01-01.json
+    cat docs/2025-09-28.json
     ```
 
 ### GitHub Actions 設定
@@ -92,9 +92,7 @@
 ## DataSource
 
 - API
-  - 2024 年所有假期的網址:
-    - <https://data.taipei/api/v1/dataset/964e936d-d971-4567-a467-aa67b930f98e?scope=resourceAquire&offset=1316&limit=1000>
-  - 2025 年所有假期的網址:
+  - 2024~2026 所有假期的網址:
     - <https://data.taipei/api/v1/dataset/0dcbcfcf-f7a1-4664-a810-82c01cb524e0?scope=resourceAquire&offset=1316&limit=1000>
 - [臺北市資料大平臺](https://data.taipei/)
   - [臺北市政府行政機關辦公日曆表](https://data.taipei/dataset/detail?id=c30ca421-d935-4faa-b523-9c175c8de738)
