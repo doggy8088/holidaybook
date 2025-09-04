@@ -82,6 +82,6 @@
 
 - API
   - 2024 年所有假期的網址:
-    - <https://data.taipei/api/v1/dataset/964e936d-d971-4567-a467-aa67b930f98e?scope=resourceAquire&offset=1316&limit=1000>
+    - <https://data.taipei/api/v1/dataset/0dcbcfcf-f7a1-4664-a810-82c01cb524e0?scope=resourceAquire&offset=1316&limit=1000>
 - [臺北市資料大平臺](https://data.taipei/)
   - [臺北市政府行政機關辦公日曆表](https://data.taipei/dataset/detail?id=c30ca421-d935-4faa-b523-9c175c8de738)
