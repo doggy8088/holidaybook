@@ -1,0 +1,115 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Run security scan weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    name: Dependency Security Scan
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: |
+          cd StaticGenerator
+          dotnet restore
+          cd ../StaticGenerator.Tests
+          dotnet restore
+
+      - name: Check for vulnerable packages
+        run: |
+          cd StaticGenerator
+          echo "Checking StaticGenerator for vulnerabilities..."
+          dotnet list package --vulnerable --include-transitive --format json > ../vulnerability-report.json || true
+          
+          cd ../StaticGenerator.Tests
+          echo "Checking StaticGenerator.Tests for vulnerabilities..."
+          dotnet list package --vulnerable --include-transitive --format json >> ../vulnerability-report-tests.json || true
+
+      - name: Check for outdated packages
+        run: |
+          cd StaticGenerator
+          echo "Checking for outdated packages in StaticGenerator..."
+          dotnet list package --outdated --format json > ../outdated-report.json || true
+          
+          cd ../StaticGenerator.Tests
+          echo "Checking for outdated packages in StaticGenerator.Tests..."
+          dotnet list package --outdated --format json >> ../outdated-report-tests.json || true
+
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            vulnerability-report.json
+            vulnerability-report-tests.json
+            outdated-report.json
+            outdated-report-tests.json
+          retention-days: 30
+
+  code-analysis:
+    runs-on: ubuntu-latest
+    name: Code Security Analysis
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build for analysis
+        run: |
+          cd StaticGenerator
+          dotnet build --configuration Release
+
+      - name: Run security tests
+        run: |
+          cd StaticGenerator.Tests
+          dotnet test --configuration Release --logger "trx;LogFileName=security-test-results.trx" --filter "SecurityTests"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results
+          path: StaticGenerator.Tests/TestResults/security-test-results.trx
+          retention-days: 30
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    name: Secrets Detection
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for secret scanning
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: master
+          head: HEAD
+          extra_args: --debug --only-verified
