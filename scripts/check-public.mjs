@@ -594,6 +594,19 @@ check(
   "The .btn--ghost:hover rule must set background: var(--accent-tint).",
 );
 
+const visiblePanelDividerBody = ruleBody(
+  css,
+  String.raw`\.install-tabs__panel:not\(\[hidden\]\)\s*\+\s*\.install-tabs__panel:not\(\[hidden\]\)`,
+);
+check(
+  hasDeclaration(visiblePanelDividerBody, "border-top", String.raw`1px\s+solid\s+var\(\s*--border\s*\)`),
+  "The install-panel divider must appear only when both adjacent panels are visible.",
+);
+check(
+  ruleBody(css, String.raw`\.install-tabs__panel\s*\+\s*\.install-tabs__panel`).length === 0,
+  "The second install panel must not receive an unconditional top border while the first panel is hidden.",
+);
+
 const explicitDarkThemeBody = ruleBody(
   css,
   String.raw`(?:\:root|html)?\s*\[\s*data-theme\s*=\s*["']dark["']\s*\]`,

@@ -874,7 +874,7 @@ code,
   padding: var(--space-5);
 }
 
-.install-tabs__panel + .install-tabs__panel {
+.install-tabs__panel:not([hidden]) + .install-tabs__panel:not([hidden]) {
   border-top: 1px solid var(--border);
 }
 
