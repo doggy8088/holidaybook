@@ -102,13 +102,13 @@ CLI exits non-zero with the same actionable error.
 ## Native binary version vs. npm package version
 
 The npm package's own `version` field (this package's semver, e.g.
-`2.0.0`) is intentionally **decoupled** from the native `holidaytw`
+`2.0.1`) is intentionally **decoupled** from the native `holidaytw`
 GitHub release tag it downloads. The native release tag is tracked
 separately in this package's `package.json` under
 `holidaytw.nativeVersion`. This means the npm package version can be
 bumped (including publishing a temporary prerelease such as
-`2.0.0-bootstrap.0`) without needing to change, or being constrained by,
-the native release tag being fetched (e.g. `v2.0.0`).
+temporary prerelease) without needing to change, or being constrained by,
+the native release tag being fetched (e.g. `v2.0.1`).
 
 ## Source and releases
 

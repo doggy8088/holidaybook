@@ -117,7 +117,7 @@ function releaseEnv(baseUrl) {
   };
 }
 
-const expectedVersionOutput = IS_WINDOWS ? process.version : 'holidaytw 2.0.0';
+const expectedVersionOutput = IS_WINDOWS ? process.version : 'holidaytw 2.0.1';
 
 async function npmPack(destDir, caseDir) {
   const result = await runNpm(NPM_CLI, ['pack', '--silent', '--pack-destination', destDir, ...hermeticNpmArgs(caseDir)], {

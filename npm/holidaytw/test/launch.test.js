@@ -164,7 +164,7 @@ test('launch: performs a lazy install when the binary is missing, using a local 
       ...(isWindows ? { HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
     });
     assert.equal(code, 0, `expected exit 0, got stderr: ${stderr}`);
-    assert.equal(stdout.trim(), isWindows ? process.version : 'holidaytw 2.0.0');
+    assert.equal(stdout.trim(), isWindows ? process.version : 'holidaytw 2.0.1');
     assert.match(stderr, /installing now/);
   } finally {
     await close();

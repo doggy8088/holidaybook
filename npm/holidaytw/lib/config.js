@@ -35,9 +35,8 @@ function validateNativeMetadata(nativeMeta) {
 // The native holidaytw release tag is intentionally read from a dedicated
 // package.json field (holidaytw.nativeVersion) instead of being derived
 // from the top-level npm "version". This decouples the npm package version
-// (which may be bumped independently, e.g. for prereleases such as
-// 2.0.0-bootstrap.0) from the native GitHub release tag that must be
-// downloaded (e.g. v2.0.0).
+// (which may be bumped independently, including temporary prereleases)
+// from the native GitHub release tag that must be downloaded.
 const {
   nativeVersion: NATIVE_VERSION,
   nativeRepository: NATIVE_REPOSITORY,
