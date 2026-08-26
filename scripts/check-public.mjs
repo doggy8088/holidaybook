@@ -87,12 +87,24 @@ const NAMED_ENTITIES = {
   quot: '"',
 };
 
+const MAX_CODE_POINT = 0x10ffff;
+
+/* Only Unicode scalar values can be materialised: String.fromCodePoint throws a
+   RangeError above U+10FFFF, and lone surrogates would produce unusable text.
+   Anything else is left as written so a malformed reference surfaces as a normal
+   contract failure instead of crashing the whole check. */
+function fromCodePoint(value, original) {
+  if (!Number.isInteger(value) || value < 0 || value > MAX_CODE_POINT) return original;
+  if (value >= 0xd800 && value <= 0xdfff) return original;
+  return String.fromCodePoint(value);
+}
+
 function decodeEntities(source) {
   return source.replace(
     /&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z][a-zA-Z0-9]*));/g,
     (match, decimal, hex, name) => {
-      if (decimal !== undefined) return String.fromCodePoint(Number(decimal));
-      if (hex !== undefined) return String.fromCodePoint(parseInt(hex, 16));
+      if (decimal !== undefined) return fromCodePoint(Number(decimal), match);
+      if (hex !== undefined) return fromCodePoint(parseInt(hex, 16), match);
       const decoded = NAMED_ENTITIES[name.toLowerCase()];
       return decoded === undefined ? match : decoded;
     },
