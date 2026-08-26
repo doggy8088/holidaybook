@@ -189,8 +189,18 @@ async function ensureInstalled(overrides = {}) {
         if (platform !== 'win32') {
           fs.chmodSync(tmpFinalPath, 0o755);
         }
-        // Atomic within installDir (same filesystem as stagingDir's parent).
-        fs.renameSync(tmpFinalPath, finalBinPath);
+        try {
+          // POSIX rename atomically replaces an existing file. Windows rename
+          // does not, so remove only the locked destination before promoting
+          // the already-verified temporary copy.
+          if (platform === 'win32') {
+            fs.rmSync(finalBinPath, { force: true });
+          }
+          fs.renameSync(tmpFinalPath, finalBinPath);
+        } catch (err) {
+          fs.rmSync(tmpFinalPath, { force: true });
+          throw err;
+        }
 
         try {
           // Re-verify the installed copy as a final safety net.

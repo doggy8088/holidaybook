@@ -118,6 +118,54 @@ test('installer: happy path installs a zip-format target (win32-x64)', async () 
   }
 });
 
+test('installer: win32 repair removes an empty destination before promotion', async () => {
+  const asset = 'holidaytw_windows_amd64.zip';
+  const archive = buildZip([{ name: 'holidaytw.exe', content: versionOkSrc }]);
+  const checksums = `${sha256(archive)}  ${asset}\n`;
+
+  const { baseUrl, close } = await createFakeServer({
+    '/checksums.txt': checksums,
+    [`/${asset}`]: archive,
+  });
+  const nativeDir = freshNativeDir('win32-empty-repair');
+  const installDir = path.join(nativeDir, 'win32-x64');
+  const finalBinPath = path.join(installDir, 'holidaytw.exe');
+  fs.mkdirSync(installDir, { recursive: true });
+  fs.writeFileSync(finalBinPath, '');
+
+  const originalRenameSync = fs.renameSync;
+  let promotionCalls = 0;
+  fs.renameSync = function windowsRename(source, destination) {
+    if (destination === finalBinPath) {
+      promotionCalls += 1;
+      if (fs.existsSync(destination)) {
+        const err = new Error('simulated Windows rename refusal for an existing destination');
+        err.code = 'EEXIST';
+        throw err;
+      }
+    }
+    return originalRenameSync(source, destination);
+  };
+
+  try {
+    const result = await ensureInstalled({
+      platform: 'win32',
+      arch: 'x64',
+      nativeDir,
+      baseUrl,
+      verifyBinary: verifyViaNode,
+    });
+
+    assert.equal(result.installed, true);
+    assert.equal(promotionCalls, 1);
+    assert.equal(fs.readFileSync(finalBinPath, 'utf8'), versionOkSrc);
+    assert.deepEqual(fs.readdirSync(installDir), ['holidaytw.exe']);
+  } finally {
+    fs.renameSync = originalRenameSync;
+    await close();
+  }
+});
+
 test('installer: is idempotent once a valid binary is present (no re-download)', async () => {
   const asset = 'holidaytw_linux_amd64.tar.gz';
   const archive = buildTarGz([{ name: 'holidaytw', content: versionOkSrc }]);
