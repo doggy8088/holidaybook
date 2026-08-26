@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Prints the exact string the real native binary is expected to print
-// (see internal/cli/run.go), matching config.NATIVE_VERSION ("2.0.0")
+// (see internal/cli/run.go), matching config.NATIVE_VERSION ("2.0.1")
 // so it passes lib/installer.js's exact `--version` output check.
 if (process.argv.includes('--version')) {
-  process.stdout.write('holidaytw 2.0.0\n');
+  process.stdout.write('holidaytw 2.0.1\n');
   process.exit(0);
 }
 process.stdout.write(JSON.stringify(process.argv.slice(2)) + '\n');

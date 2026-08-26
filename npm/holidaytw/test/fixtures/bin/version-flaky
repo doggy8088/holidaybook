@@ -19,9 +19,9 @@ if (process.argv.includes('--version')) {
   fs.writeFileSync(counterFile, String(count));
 
   if (count === 1) {
-    process.stdout.write('holidaytw 2.0.0\n');
+    process.stdout.write('holidaytw 2.0.1\n');
   } else {
-    process.stdout.write('holidaytw 2.0.0-corrupted\n');
+    process.stdout.write('holidaytw 2.0.1-corrupted\n');
   }
   process.exit(0);
 }

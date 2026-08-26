@@ -1,6 +1,6 @@
 {
   "name": "holidaytw",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "npm launcher for the holidaytw Taiwan holiday CLI: downloads the matching native holidaytw binary from GitHub Releases and runs it.",
   "license": "UNLICENSED",
   "engines": {
@@ -30,9 +30,9 @@
     "pack:check": "node scripts/verify-pack.js"
   },
   "holidaytw": {
-    "nativeVersion": "2.0.0",
+    "nativeVersion": "2.0.1",
     "nativeRepository": "doggy8088/holidaybook",
-    "comment": "nativeVersion is the native holidaytw GitHub release tag (without the leading 'v') used for downloads. It is intentionally decoupled from the top-level npm 'version' field above so a temporary npm prerelease (e.g. 2.0.0-bootstrap.0) can still resolve and download native release v2.0.0."
+    "comment": "nativeVersion is the native holidaytw GitHub release tag (without the leading 'v') used for downloads. It is intentionally decoupled from the top-level npm 'version' field above so a temporary npm prerelease can still resolve and download an already-published native release."
   },
   "repository": {
     "type": "git",
