@@ -69,6 +69,27 @@ function hasThemeVariables(body) {
     new RegExp(`${property}\\s*:`, "i").test(body));
 }
 
+/* Returns the inner markup of the first matching element, tracking nesting of
+   the same tag so a scoped assertion cannot silently read past the element. */
+function elementBlock(source, tag, attributePattern) {
+  const opening = new RegExp(`<${tag}\\b(?=[^>]*\\b${attributePattern})[^>]*>`, "i");
+  const found = source.match(opening);
+  if (!found) return "";
+
+  const start = found.index + found[0].length;
+  const boundaries = new RegExp(`<${tag}\\b[^>]*>|</${tag}\\s*>`, "gi");
+  boundaries.lastIndex = start;
+  let depth = 1;
+  let match;
+
+  while ((match = boundaries.exec(source)) !== null) {
+    depth += match[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return source.slice(start, match.index);
+  }
+
+  return "";
+}
+
 /* Install one-liners contain characters that must be escaped in HTML, so the
    markup is compared against the real command rather than its entity form.
 
@@ -216,7 +237,9 @@ codePreMatches.forEach((match, index) => {
 
 /* The one-command install section is the primary conversion path for the CLI,
    so its anchor, exact commands and copy wiring are pinned here rather than
-   left to a visual review. */
+   left to a visual review. Everything the messages describe as belonging to the
+   install section is matched against that section only: the same link or wording
+   appearing elsewhere on the page must never mask a regression inside it. */
 check(
   hasAttributes("section", [
     String.raw`id=["']install["']`,
@@ -224,8 +247,14 @@ check(
   ]).test(html),
   'The page must contain <section id="install"> labelled by install-heading.',
 );
+
+const installSection = elementBlock(html, "section", String.raw`id=["']install["']`);
 check(
-  /<h2\b[^>]*\bid=["']install-heading["'][^>]*>/i.test(html),
+  installSection.length > 0,
+  'Could not read the contents of <section id="install">; is the closing tag missing?',
+);
+check(
+  /<h2\b[^>]*\bid=["']install-heading["'][^>]*>/i.test(installSection),
   'The install section must have an <h2 id="install-heading">.',
 );
 check(
@@ -247,7 +276,7 @@ const INSTALL_COMMANDS = [
 ];
 
 for (const { id, label, command } of INSTALL_COMMANDS) {
-  const codeMatch = html.match(new RegExp(`<code\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</code>`, "i"));
+  const codeMatch = installSection.match(new RegExp(`<code\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</code>`, "i"));
   check(Boolean(codeMatch), `The install section must contain <code id="${id}"> for ${label}.`);
   if (codeMatch) {
     check(
@@ -256,11 +285,11 @@ for (const { id, label, command } of INSTALL_COMMANDS) {
     );
   }
 
+  const copyButton = installSection.match(new RegExp(`<button\\b([^>]*\\bdata-copy-target=["']${id}["'][^>]*)>`, "i"));
   check(
-    new RegExp(`<button\\b[^>]*\\bdata-copy-target=["']${id}["'][^>]*>`, "i").test(html),
+    Boolean(copyButton),
     `The ${label} install command needs a copy button with data-copy-target="${id}".`,
   );
-  const copyButton = html.match(new RegExp(`<button\\b([^>]*\\bdata-copy-target=["']${id}["'][^>]*)>`, "i"));
   if (copyButton) {
     check(
       /\bclass=["'][^"']*\bcode-block__copy\b[^"']*["']/i.test(copyButton[1]),
@@ -268,7 +297,7 @@ for (const { id, label, command } of INSTALL_COMMANDS) {
     );
   }
 
-  const preMatch = html.match(new RegExp(`<pre\\b([^>]*)>\\s*<code\\b[^>]*\\bid=["']${id}["']`, "i"));
+  const preMatch = installSection.match(new RegExp(`<pre\\b([^>]*)>\\s*<code\\b[^>]*\\bid=["']${id}["']`, "i"));
   check(Boolean(preMatch), `The ${label} command must live inside a <pre> element.`);
   if (preMatch) {
     check(
@@ -279,11 +308,11 @@ for (const { id, label, command } of INSTALL_COMMANDS) {
 }
 
 check(
-  /<a\b[^>]*\bhref=["']https:\/\/github\.com\/doggy8088\/holidaybook\/releases["'][^>]*>/i.test(html),
+  /<a\b[^>]*\bhref=["']https:\/\/github\.com\/doggy8088\/holidaybook\/releases["'][^>]*>/i.test(installSection),
   "The install section must link to https://github.com/doggy8088/holidaybook/releases for versioned or manual installs.",
 );
 check(
-  /SHA-256/i.test(html) && /checksums\.txt/i.test(html),
+  /SHA-256/i.test(installSection) && /checksums\.txt/i.test(installSection),
   "The install section must state that the installer verifies the release SHA-256 against checksums.txt.",
 );
 
