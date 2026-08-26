@@ -274,5 +274,5 @@ StaticGenerator.Tests/coverage/
 
 # Go CLI build output
 /dist/
-/holidaybook
-/holidaybook.exe
+/holidaytw
+/holidaytw.exe

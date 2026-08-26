@@ -47,7 +47,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          # The CLI uses only the standard library, so there is no module cache
+          # directory to save; enabling setup-go caching emits a warning.
+          cache: false
 
       - name: Verify formatting
         shell: bash
@@ -67,6 +69,9 @@ jobs:
       - name: Check POSIX installer syntax
         run: bash -n install.sh
 
+      - name: Run POSIX installer regression tests
+        run: sh scripts/test-install-sh.sh
+
       - name: Check PowerShell installer syntax
         shell: pwsh
         run: |
@@ -81,6 +86,9 @@ jobs:
             $parseErrors | ForEach-Object { Write-Error $_ }
             exit 1
           }
+
+      - name: Run PowerShell installer regression tests
+        run: pwsh -NoProfile -File scripts/test-install-ps1.ps1
 
       - name: Validate GoReleaser configuration
         uses: goreleaser/goreleaser-action@v7
@@ -118,7 +126,7 @@ jobs:
       CGO_ENABLED: "0"
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
-      OUTPUT_NAME: holidaybook${{ matrix.extension }}
+      OUTPUT_NAME: holidaytw${{ matrix.extension }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -127,10 +135,11 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          # Cross-builds have no external modules to cache.
+          cache: false
 
       - name: Cross-build CLI
-        run: go build -trimpath -ldflags="-X main.version=ci" -o "${RUNNER_TEMP}/${OUTPUT_NAME}" ./cmd/holidaybook
+        run: go build -trimpath -ldflags="-X main.version=ci" -o "${RUNNER_TEMP}/${OUTPUT_NAME}" ./cmd/holidaytw
 
   dotnet-tests:
     name: .NET generator tests
@@ -146,3 +155,80 @@ jobs:
 
       - name: Test static generator
         run: dotnet test StaticGenerator.Tests/StaticGenerator.Tests.csproj --configuration Release --verbosity normal
+
+  npm-package-tests:
+    name: npm package tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: npm/holidaytw
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # --ignore-scripts skips the package's networked postinstall (which downloads the
+      # native holidaytw binary for the current platform), keeping CI hermetic. `npm ci`
+      # requires the committed package-lock.json and never silently falls back to
+      # `npm install`, so the lockfile stays the single source of truth on every OS.
+      - name: Install dependencies (scripts disabled)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run package built-in tests
+        run: npm test
+
+  npm-package-verify:
+    name: npm package verification (Ubuntu)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm/holidaytw
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install dependencies (scripts disabled)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # Runs a real `npm pack` and asserts on the exact tarball contents (only intended
+      # files, executable bin entry, license/repository metadata), rather than duplicating
+      # a weaker ad hoc tar listing check here.
+      - name: Verify packed tarball contents
+        run: npm run pack:check
+
+      # Forces an unsupported platform/arch so platformMatrix.resolveTarget() throws
+      # synchronously, before any download would be attempted. This is a deterministic,
+      # network-free smoke check of the wrapper's error handling; it must never contact
+      # the (possibly unreleased) GitHub release asset for the current, supported platform.
+      - name: Validate executable wrapper behavior (no network)
+        shell: bash
+        env:
+          HOLIDAYTW_TEST_MODE: "1"
+          HOLIDAYTW_PLATFORM: plan9
+          HOLIDAYTW_ARCH: mips
+        run: |
+          set +e
+          output="$(node bin/holidaytw.js --help 2>&1)"
+          status=$?
+          set -e
+
+          echo "${output}"
+
+          if [ "${status}" -eq 0 ]; then
+            echo "::error::Expected a nonzero exit code for an unsupported platform/arch"
+            exit 1
+          fi
+          echo "${output}" | grep -qi "Unsupported platform"

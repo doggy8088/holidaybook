@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+// Simulates a binary that verifies correctly the first time it is
+// invoked with --version (as the staged copy, before install) but fails
+// the second time (as the just-renamed final installed copy), by using
+// a counter file at HOLIDAYTW_FLAKY_COUNTER_FILE. This is used only to
+// test that lib/installer.js removes a final binary that fails its
+// post-rename verification, leaving no invalid binary installed.
+const fs = require('fs');
+
+if (process.argv.includes('--version')) {
+  const counterFile = process.env.HOLIDAYTW_FLAKY_COUNTER_FILE;
+  let count = 0;
+  try {
+    count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0;
+  } catch {
+    /* first invocation: file does not exist yet */
+  }
+  count += 1;
+  fs.writeFileSync(counterFile, String(count));
+
+  if (count === 1) {
+    process.stdout.write('holidaytw 2.0.0\n');
+  } else {
+    process.stdout.write('holidaytw 2.0.0-corrupted\n');
+  }
+  process.exit(0);
+}
+process.stdout.write(JSON.stringify(process.argv.slice(2)) + '\n');
+process.exit(0);

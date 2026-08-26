@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+// Exits 0 (a "successful" process) but prints output that does not
+// identify itself as the expected native holidaytw binary/version. Used
+// to verify that lib/installer.js's verifyBinaryExecutes() rejects a
+// technically-successful process whose --version output doesn't match.
+if (process.argv.includes('--version')) {
+  process.stdout.write('some-other-tool 9.9.9\n');
+  process.exit(0);
+}
+process.stdout.write(JSON.stringify(process.argv.slice(2)) + '\n');
+process.exit(0);

@@ -391,6 +391,90 @@
     queryDate(date, "none");
   });
 
+  /* ---- Native install tabs: macOS/Linux vs Windows (PowerShell) ----
+     Without JavaScript, the controls are hidden and both semantically ordinary
+     install panels remain visible. Once every required element exists, this
+     applies the complete WAI-ARIA relationship, enforces one visible panel,
+     wires up keyboard handling, and only then reveals the controls. */
+  var installTabList = document.getElementById("install-tabs-list");
+  var installTabs = [
+    {
+      tabId: "install-tab-posix",
+      panelId: "install-panel-posix",
+      tab: document.getElementById("install-tab-posix"),
+      panel: document.getElementById("install-panel-posix")
+    },
+    {
+      tabId: "install-tab-powershell",
+      panelId: "install-panel-powershell",
+      tab: document.getElementById("install-tab-powershell"),
+      panel: document.getElementById("install-panel-powershell")
+    }
+  ];
+
+  if (
+    installTabList &&
+    installTabs[0].tab && installTabs[0].panel &&
+    installTabs[1].tab && installTabs[1].panel
+  ) {
+    var activateInstallTab = function (index, moveFocus) {
+      installTabs.forEach(function (entry, i) {
+        var selected = i === index;
+        entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
+        entry.tab.setAttribute("tabindex", selected ? "0" : "-1");
+        if (selected) {
+          entry.panel.removeAttribute("hidden");
+        } else {
+          entry.panel.setAttribute("hidden", "");
+        }
+      });
+      if (moveFocus) {
+        installTabs[index].tab.focus();
+      }
+    };
+
+    installTabList.setAttribute("role", "tablist");
+    installTabList.setAttribute("aria-labelledby", "install-heading");
+
+    installTabs.forEach(function (entry, index) {
+      entry.tab.setAttribute("role", "tab");
+      entry.tab.setAttribute("aria-controls", entry.panelId);
+      entry.panel.setAttribute("role", "tabpanel");
+      entry.panel.setAttribute("aria-labelledby", entry.tabId);
+      entry.panel.setAttribute("tabindex", "0");
+
+      entry.tab.addEventListener("click", function () {
+        activateInstallTab(index, false);
+      });
+
+      entry.tab.addEventListener("keydown", function (event) {
+        var lastIndex = installTabs.length - 1;
+        var targetIndex;
+        switch (event.key) {
+          case "ArrowRight":
+            targetIndex = index === lastIndex ? 0 : index + 1;
+            break;
+          case "ArrowLeft":
+            targetIndex = index === 0 ? lastIndex : index - 1;
+            break;
+          case "Home":
+            targetIndex = 0;
+            break;
+          case "End":
+            targetIndex = lastIndex;
+            break;
+          default:
+            return;
+        }
+        event.preventDefault();
+        activateInstallTab(targetIndex, true);
+      });
+    });
+
+    activateInstallTab(0, false);
+    installTabList.removeAttribute("hidden");
+  }
+
   /* ---- Copy-to-clipboard for code samples and raw JSON ---- */
   document.querySelectorAll("[data-copy-target]").forEach(function (button) {
     var originalLabel = button.textContent;

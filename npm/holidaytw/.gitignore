@@ -1,0 +1,28 @@
+# Downloaded/extracted native binaries (per-platform), created at install
+# time. Never committed.
+/native/
+
+# Staging/lock directories used during atomic installs, in case any are
+# ever left behind by an interrupted process.
+/native/.staging-*
+/native/*.lock/
+
+# Scratch directories used by scripts/verify-pack.js and by tests.
+/.pack-check-*/
+/test/.tmp/
+
+# npm pack output, if ever generated locally.
+*.tgz
+
+# Editor/OS cruft.
+.DS_Store
+
+# The repository root .gitignore has a generic Visual-Studio-style
+# `[Bb]in/` rule (for unrelated Go/.NET build output) that would
+# otherwise also match this package's own bin/ launcher directory and
+# its test/fixtures/bin/ fixtures. Explicitly un-ignore them here so
+# `bin/holidaytw.js` and the fixture executables are trackable.
+!/bin/
+!/bin/**
+!/test/fixtures/bin/
+!/test/fixtures/bin/**

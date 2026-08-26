@@ -86,7 +86,7 @@ func (c *Client) FetchDay(ctx context.Context, isoDate string) (Day, error) {
 		return Day{}, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "holidaybook")
+	req.Header.Set("User-Agent", "holidaytw")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

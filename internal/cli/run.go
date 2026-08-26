@@ -46,7 +46,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, version s
 		return ExitOK
 	}
 	if opts.version {
-		fmt.Fprintf(stdout, "holidaybook %s\n", version)
+		fmt.Fprintf(stdout, "holidaytw %s\n", version)
 		return ExitOK
 	}
 	if err := holiday.ValidateDate(date); err != nil {
@@ -85,7 +85,7 @@ func parseArgs(args []string) (options, string, error) {
 		baseURL: holiday.DefaultBaseURL,
 		timeout: holiday.DefaultTimeout,
 	}
-	flags := flag.NewFlagSet("holidaybook", flag.ContinueOnError)
+	flags := flag.NewFlagSet("holidaytw", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&opts.baseURL, "base-url", opts.baseURL, "")
 	flags.DurationVar(&opts.timeout, "timeout", opts.timeout, "")
@@ -144,8 +144,8 @@ func normalizeArgs(args []string) ([]string, error) {
 }
 
 func writeUsage(w io.Writer) {
-	fmt.Fprintln(w, "用法：holidaybook [--json] [--base-url URL] [--timeout 10s] YYYY-MM-DD")
-	fmt.Fprintln(w, "      holidaybook --version")
+	fmt.Fprintln(w, "用法：holidaytw [--json] [--base-url URL] [--timeout 10s] YYYY-MM-DD")
+	fmt.Fprintln(w, "      holidaytw --version")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "選項：")
 	fmt.Fprintln(w, "  --json             輸出機器可讀 JSON（成功與錯誤皆為 JSON）")

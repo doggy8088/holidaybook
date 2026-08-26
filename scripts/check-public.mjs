@@ -226,8 +226,8 @@ check(
 
 const codeBlockCount = [...html.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bcode-block\b[^"']*["'][^>]*>/gi)].length;
 const codePreMatches = [...html.matchAll(/<pre\b([^>]*)>\s*<code\b/gi)];
-check(codeBlockCount === 7, `Expected 7 .code-block elements, found ${codeBlockCount}.`);
-check(codePreMatches.length === 7, `Expected 7 code-block <pre> elements, found ${codePreMatches.length}.`);
+check(codeBlockCount === 8, `Expected 8 .code-block elements, found ${codeBlockCount}.`);
+check(codePreMatches.length === 8, `Expected 8 code-block <pre> elements, found ${codePreMatches.length}.`);
 codePreMatches.forEach((match, index) => {
   check(
     /\btabindex=["']0["']/i.test(match[1]),
@@ -261,6 +261,67 @@ check(
   /<nav\b[^>]*\bclass=["'][^"']*\bsite-nav\b[^"']*["'][^>]*>[\s\S]*?<a\b[^>]*\bhref=["']#install["'][^>]*>\s*安裝\s*<\/a>[\s\S]*?<\/nav>/i.test(html),
   'The site navigation must link to #install with the label "安裝".',
 );
+
+/* The server-rendered HTML is the no-JavaScript fallback: both install
+   sections remain visible and the inert tab controls stay hidden without
+   claiming ARIA tab semantics. app.js applies the complete tablist/tab/
+   tabpanel relationship before revealing the controls; its behavior is
+   covered by tests/public-app.test.mjs. */
+const installTabListMatch = installSection.match(
+  /<div\b(?=[^>]*\bid=["']install-tabs-list["'])([^>]*)>/i,
+);
+check(Boolean(installTabListMatch), 'The install section must contain id="install-tabs-list".');
+if (installTabListMatch) {
+  const attrs = installTabListMatch[1];
+  check(
+    /\bclass=["'][^"']*\binstall-tabs__list\b[^"']*["']/i.test(attrs),
+    "#install-tabs-list must use the .install-tabs__list class.",
+  );
+  check(
+    /\bhidden(?:\s*=\s*(?:["'][^"']*["']|[^\s]+))?(?:\s|$)/i.test(attrs),
+    "#install-tabs-list must stay hidden until JavaScript applies tab semantics.",
+  );
+  check(
+    !/\brole\s*=|\baria-labelledby\s*=/i.test(attrs),
+    "#install-tabs-list must not claim tablist semantics before JavaScript enhancement.",
+  );
+}
+
+const INSTALL_TABS = [
+  { tabId: "install-tab-posix", panelId: "install-panel-posix", label: /macOS/i },
+  { tabId: "install-tab-powershell", panelId: "install-panel-powershell", label: /PowerShell/i },
+];
+
+for (const { tabId, panelId, label } of INSTALL_TABS) {
+  const tabMatch = installSection.match(
+    new RegExp(`<button\\b([^>]*\\bid=["']${tabId}["'][^>]*)>([\\s\\S]*?)</button>`, "i"),
+  );
+  check(Boolean(tabMatch), `The install section must contain a tab button id="${tabId}".`);
+  if (tabMatch) {
+    const [, attrs, text] = tabMatch;
+    check(
+      /\btype=["']button["']/i.test(attrs),
+      `#${tabId} must remain a non-submitting button.`,
+    );
+    check(
+      !/\brole\s*=|\baria-controls\s*=|\baria-selected\s*=|\btabindex\s*=/i.test(attrs),
+      `#${tabId} must not claim tab semantics before JavaScript enhancement.`,
+    );
+    check(label.test(decodeEntities(text)), `The #${tabId} label must mention ${label}.`);
+  }
+
+  const panelMatch = installSection.match(
+    new RegExp(`<div\\b([^>]*\\bid=["']${panelId}["'][^>]*)>`, "i"),
+  );
+  check(Boolean(panelMatch), `The install section must contain an install panel id="${panelId}".`);
+  if (panelMatch) {
+    const attrs = panelMatch[1];
+    check(
+      !/\brole\s*=|\baria-labelledby\s*=|\btabindex\s*=|\bhidden(?:\s|=|$)/i.test(attrs),
+      `#${panelId} must remain visible and semantically ordinary before JavaScript enhancement.`,
+    );
+  }
+}
 
 const INSTALL_COMMANDS = [
   {
@@ -314,6 +375,158 @@ check(
 check(
   /SHA-256/i.test(installSection) && /checksums\.txt/i.test(installSection),
   "The install section must state that the installer verifies the release SHA-256 against checksums.txt.",
+);
+check(
+  /Programs\\holidaytw/i.test(installSection),
+  'The install section must show the Windows install path using the "holidaytw" executable name.',
+);
+check(
+  !/Programs\\holidaybook/i.test(installSection),
+  'The install section must not show the old "holidaybook" executable name in the Windows install path.',
+);
+
+/* The CLI is now distributed as "holidaytw" (the future npm package name
+   matches, but is intentionally not advertised here until it is published).
+   The GitHub repository slug doggy8088/holidaybook, the API domain, and the
+   install.sh/install.ps1 filenames are unaffected by this rename and are
+   deliberately left out of this check. */
+const cliSection = elementBlock(html, "section", String.raw`id=["']cli["']`);
+check(
+  cliSection.length > 0,
+  'Could not read the contents of <section id="cli">; is the closing tag missing?',
+);
+check(
+  /<code\b[^>]*>\s*holidaytw\s*<\/code>\s*CLI/i.test(cliSection),
+  'The CLI section must introduce the installed executable as "holidaytw".',
+);
+
+const CLI_EXAMPLES = [
+  { id: "cli-example-1", command: "holidaytw 2025-07-20" },
+  { id: "cli-example-2", command: "holidaytw --json 2025-07-20" },
+];
+
+for (const { id, command } of CLI_EXAMPLES) {
+  const codeMatch = cliSection.match(new RegExp(`<code\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</code>`, "i"));
+  check(Boolean(codeMatch), `The CLI section must contain <code id="${id}"> for the holidaytw example.`);
+  if (codeMatch) {
+    check(
+      decodeEntities(codeMatch[1]).trim() === command,
+      `The #${id} CLI example must be exactly "${command}".`,
+    );
+  }
+}
+
+check(
+  !/\bholidaybook\b/i.test(cliSection),
+  'The CLI section must not reference the old "holidaybook" executable name.',
+);
+
+/* Agent Skill install path: a direct repo tree URL to the root skill/SKILL.md,
+   distinct from .github/skills, documented inside the install section without
+   yet advertising npm (the package is not published). The primary command
+   must stay the plain "npx skills add ..." form -- never "--all" by default,
+   since that installs to every supported agent at once. */
+const agentSkillBlock = elementBlock(installSection, "div", String.raw`id=["']agent-skill["']`);
+check(
+  agentSkillBlock.length > 0,
+  'Could not read the contents of the Agent Skill subsection (<div id="agent-skill">) inside the install section.',
+);
+check(
+  hasAttributes("div", [
+    String.raw`id=["']agent-skill["']`,
+    String.raw`role=["']region["']`,
+    String.raw`aria-labelledby=["']agent-skill-heading["']`,
+  ]).test(installSection),
+  'The Agent Skill subsection must be a region landmark labelled by agent-skill-heading.',
+);
+check(
+  /<h3\b[^>]*\bid=["']agent-skill-heading["'][^>]*>/i.test(agentSkillBlock),
+  'The Agent Skill subsection must have an <h3 id="agent-skill-heading">.',
+);
+
+const AGENT_SKILL_COMMAND =
+  "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
+const agentSkillCodeMatch = agentSkillBlock.match(
+  /<code\b[^>]*\bid=["']agent-skill-install["'][^>]*>([\s\S]*?)<\/code>/i,
+);
+check(
+  Boolean(agentSkillCodeMatch),
+  'The Agent Skill subsection must contain <code id="agent-skill-install">.',
+);
+if (agentSkillCodeMatch) {
+  check(
+    decodeEntities(agentSkillCodeMatch[1]).trim() === AGENT_SKILL_COMMAND,
+    `The Agent Skill install command must be exactly "${AGENT_SKILL_COMMAND}".`,
+  );
+}
+
+const agentSkillCopyButton = agentSkillBlock.match(
+  /<button\b([^>]*\bdata-copy-target=["']agent-skill-install["'][^>]*)>/i,
+);
+check(
+  Boolean(agentSkillCopyButton),
+  'The Agent Skill install command needs a copy button with data-copy-target="agent-skill-install".',
+);
+if (agentSkillCopyButton) {
+  check(
+    /\bclass=["'][^"']*\bcode-block__copy\b[^"']*["']/i.test(agentSkillCopyButton[1]),
+    "The Agent Skill copy button must reuse the .code-block__copy behaviour.",
+  );
+}
+
+const agentSkillPreMatch = agentSkillBlock.match(
+  /<pre\b([^>]*)>\s*<code\b[^>]*\bid=["']agent-skill-install["']/i,
+);
+check(Boolean(agentSkillPreMatch), "The Agent Skill command must live inside a <pre> element.");
+if (agentSkillPreMatch) {
+  check(
+    /\btabindex=["']0["']/i.test(agentSkillPreMatch[1]),
+    'The Agent Skill command block must be keyboard focusable with tabindex="0".',
+  );
+}
+
+check(
+  /skill\/SKILL\.md/i.test(agentSkillBlock) && /\.github\/skills/i.test(agentSkillBlock),
+  'The Agent Skill subsection must explain the root skill/SKILL.md path versus .github/skills.',
+);
+check(
+  /holidaytw/i.test(agentSkillBlock) &&
+    /npm/i.test(agentSkillBlock) &&
+    /不會執行/i.test(agentSkillBlock) &&
+    /名稱所有權/i.test(agentSkillBlock),
+  "The Agent Skill subsection must not execute the unclaimed npm package before bootstrap publication.",
+);
+check(
+  /(macOS|Linux)/i.test(agentSkillBlock) && /Windows/i.test(agentSkillBlock),
+  "The Agent Skill subsection must mention the matching macOS/Linux or Windows installer fallback.",
+);
+check(
+  /HTTPS|JSON/i.test(agentSkillBlock) && /API/i.test(agentSkillBlock),
+  "The Agent Skill subsection must mention the HTTPS JSON API fallback.",
+);
+
+/* The official Skills CLI documents --all after the repo URL; the wrong order
+   is checked for explicitly so a future edit cannot silently regress it. */
+const ALL_AGENTS_COMMAND =
+  "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill --all";
+check(
+  agentSkillBlock.includes(ALL_AGENTS_COMMAND),
+  `The Agent Skill subsection must show the optional all-agents example in the documented argument order: "${ALL_AGENTS_COMMAND}".`,
+);
+check(
+  !/npx\s+skills\s+add\s+--all\s+https:\/\//i.test(agentSkillBlock),
+  'The Agent Skill subsection must not show "--all" placed before the repository URL.',
+);
+
+/* The footnote must describe "latest release" dynamically so it never goes
+   stale the moment a new version ships; no hard-coded version number. */
+check(
+  /latest release/i.test(installSection),
+  'The install section footnote must describe the unversioned default as "latest release".',
+);
+check(
+  !/\bv\d+\.\d+\.\d+\b/.test(installSection),
+  "The install section must not hard-code a specific release version number.",
 );
 
 const images = [...html.matchAll(/<img\b([^>]*)>/gi)].map((match) => match[1]);
@@ -389,6 +602,19 @@ check(ghostHoverBody.length > 0, "public/styles.css is missing the .btn--ghost:h
 check(
   hasDeclaration(ghostHoverBody, "background", String.raw`var\(\s*--accent-tint\s*\)`),
   "The .btn--ghost:hover rule must set background: var(--accent-tint).",
+);
+
+const visiblePanelDividerBody = ruleBody(
+  css,
+  String.raw`\.install-tabs__panel:not\(\[hidden\]\)\s*\+\s*\.install-tabs__panel:not\(\[hidden\]\)`,
+);
+check(
+  hasDeclaration(visiblePanelDividerBody, "border-top", String.raw`1px\s+solid\s+var\(\s*--border\s*\)`),
+  "The install-panel divider must appear only when both adjacent panels are visible.",
+);
+check(
+  ruleBody(css, String.raw`\.install-tabs__panel\s*\+\s*\.install-tabs__panel`).length === 0,
+  "The second install panel must not receive an unconditional top border while the first panel is hidden.",
 );
 
 const explicitDarkThemeBody = ruleBody(

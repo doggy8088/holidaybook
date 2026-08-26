@@ -231,31 +231,59 @@
         <p class="section__lede">複製下面對應你系統的那一行貼進終端機就可以了。隨附的安裝腳本會自動判斷平台與 CPU 架構、從 GitHub Releases 取得對應的執行檔，並比對官方的 <code>checksums.txt</code> 驗證 SHA-256；雜湊不符就會中止安裝。</p>
       </div>
 
-      <div class="install-grid">
-        <article class="install-card">
-          <h3 class="install-card__os" id="install-posix-label">macOS ／ Linux</h3>
-          <p class="install-card__note">使用 <code>install.sh</code>，自動判斷作業系統（macOS／Linux）與架構（amd64／arm64）。</p>
-          <div class="code-block code-block--install">
-            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-posix">複製</button>
-            <pre tabindex="0" role="group" aria-labelledby="install-posix-label"><code id="install-posix">curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh</code></pre>
-          </div>
-          <p class="install-card__target">預設安裝到 <code>~/.local/bin</code>。</p>
-        </article>
+      <div class="install-tabs">
+        <div id="install-tabs-list" class="install-tabs__list" hidden>
+          <button
+            type="button"
+            id="install-tab-posix"
+            class="install-tabs__tab"
+          >macOS ／ Linux</button>
+          <button
+            type="button"
+            id="install-tab-powershell"
+            class="install-tabs__tab"
+          >Windows（PowerShell）</button>
+        </div>
 
-        <article class="install-card">
-          <h3 class="install-card__os" id="install-powershell-label">Windows（PowerShell）</h3>
-          <p class="install-card__note">使用 <code>install.ps1</code>，自動判斷架構（amd64／arm64）。</p>
-          <div class="code-block code-block--install">
-            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-powershell">複製</button>
-            <pre tabindex="0" role="group" aria-labelledby="install-powershell-label"><code id="install-powershell">irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex</code></pre>
+        <div
+          id="install-panel-posix"
+          class="install-tabs__panel"
+        >
+          <p class="install-tabs__note">使用 <code>install.sh</code>，自動判斷作業系統（macOS／Linux）與架構（amd64／arm64）。</p>
+          <div class="code-block">
+            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-posix">複製</button>
+            <pre tabindex="0"><code id="install-posix">curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh</code></pre>
           </div>
-          <p class="install-card__target">預設安裝到 <code>%LOCALAPPDATA%\Programs\holidaybook</code>。</p>
-        </article>
+          <p class="install-tabs__target">預設安裝到 <code>~/.local/bin</code>。</p>
+        </div>
+
+        <div
+          id="install-panel-powershell"
+          class="install-tabs__panel"
+        >
+          <p class="install-tabs__note">在 Windows PowerShell 使用 <code>install.ps1</code>，自動判斷架構（amd64／arm64）。</p>
+          <div class="code-block">
+            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-powershell">複製</button>
+            <pre tabindex="0"><code id="install-powershell">irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex</code></pre>
+          </div>
+          <p class="install-tabs__target">預設安裝到 <code>%LOCALAPPDATA%\Programs\holidaytw</code>。</p>
+        </div>
       </div>
 
       <div class="install-footnote">
-        <p>不帶參數執行時安裝的是 <strong>latest release</strong>（目前為 <code>v1.0.0</code>）。腳本不會自動修改 <code>PATH</code>；安裝目錄若不在 <code>PATH</code> 中，腳本會在結束時提示你加入。</p>
+        <p>不帶參數執行時安裝的是 <strong>latest release</strong>（永遠對應 GitHub Releases 上最新的版本）。腳本不會自動修改 <code>PATH</code>；安裝目錄若不在 <code>PATH</code> 中，腳本會在結束時提示你加入。</p>
         <p>要指定版本、改安裝目錄，或想自己下載壓縮檔與 <code>checksums.txt</code> 手動安裝，請參考 <a href="https://github.com/doggy8088/holidaybook/releases" target="_blank" rel="noopener">GitHub Releases</a>；CLI 目前僅透過 Releases 發布，不提供 Homebrew、apt 或 winget 等套件管理員安裝方式。</p>
+      </div>
+
+      <div class="agent-skill" id="agent-skill" role="region" aria-labelledby="agent-skill-heading">
+        <h3 id="agent-skill-heading" class="agent-skill__heading">或讓 AI 代理人透過 Agent Skill 自動安裝</h3>
+        <p class="agent-skill__note">支援 Agent Skills 的工具可以直接讀取這個指令。<code>skills</code> 會偵測目前環境支援哪些代理人，並讓你選擇要安裝到「這個專案」還是「全域」共用。指令直接指向本儲存庫根目錄的 <code>skill/SKILL.md</code>，可避免跟 <code>.github/skills</code> 底下既有的技能定義互相混淆。</p>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="agent-skill-install">複製</button>
+          <pre tabindex="0"><code id="agent-skill-install">npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill</code></pre>
+        </div>
+        <p class="agent-skill__detail">技能載入後會依序自動判斷環境：本機已安裝 <code>holidaytw</code> 就直接使用；否則會依作業系統自動切換成上方的 macOS／Linux 或 Windows 官方一行安裝指令；最後才會退回直接呼叫 HTTPS JSON API 讀取資料。在 npm 套件正式發布並確認名稱所有權前，skill 不會執行尚未受信任的 <code>npx holidaytw</code>／<code>npm install holidaytw</code>，發布後再更新這條安全安裝路徑。</p>
+        <p class="agent-skill__detail">如果想一次安裝到所有支援的代理人，可以改用 <code>npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill --all</code>；預設指令則會先讓你挑選要安裝的代理人與安裝範圍。</p>
       </div>
     </div>
   </section>
@@ -270,10 +298,10 @@
       <div class="split">
         <div>
           <h3>CLI 與 curl 範例</h3>
-          <p>若已安裝 <code>holidaybook</code> CLI：</p>
+          <p>若已安裝 <code>holidaytw</code> CLI：</p>
           <div class="code-block">
             <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="cli-example-1">複製</button>
-            <pre tabindex="0"><code id="cli-example-1">holidaybook 2025-07-20</code></pre>
+            <pre tabindex="0"><code id="cli-example-1">holidaytw 2025-07-20</code></pre>
           </div>
           <p class="sample-output__label">輸出：</p>
           <pre class="sample-output">2025-07-20：放假
@@ -282,7 +310,7 @@
           <p>加上 <code>--json</code> 取得機器可讀的輸出，方便串接腳本：</p>
           <div class="code-block">
             <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="cli-example-2">複製</button>
-            <pre tabindex="0"><code id="cli-example-2">holidaybook --json 2025-07-20</code></pre>
+            <pre tabindex="0"><code id="cli-example-2">holidaytw --json 2025-07-20</code></pre>
           </div>
           <p class="sample-output__label">輸出：</p>
           <pre class="sample-output">{"date":"2025-07-20","isHoliday":true,"name":"","category":"星期六、星期日","description":""}</pre>

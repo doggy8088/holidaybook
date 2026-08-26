@@ -3,13 +3,16 @@
 set -eu
 
 REPOSITORY="doggy8088/holidaybook"
-PROGRAM="holidaybook"
+PROGRAM="holidaytw"
 version="latest"
-install_dir="${HOLIDAYBOOK_INSTALL_DIR:-}"
+# Installation directory precedence (highest wins): --dir/-d flag >
+# HOLIDAYTW_INSTALL_DIR > HOLIDAYBOOK_INSTALL_DIR (deprecated migration
+# alias for pre-v2.0.0 installs) > ~/.local/bin.
+install_dir="${HOLIDAYTW_INSTALL_DIR:-${HOLIDAYBOOK_INSTALL_DIR:-}}"
 
 usage() {
   cat <<'EOF'
-Install holidaybook from GitHub Releases.
+Install holidaytw from GitHub Releases.
 
 Usage:
   install.sh [--version VERSION] [--dir DIRECTORY]
@@ -18,11 +21,17 @@ Options:
   -v, --version VERSION  Release tag to install (default: latest)
   -d, --dir DIRECTORY    Installation directory (default: ~/.local/bin)
   -h, --help             Show this help
+
+Environment variables (lowest to highest precedence, all overridden by
+--dir):
+  HOLIDAYBOOK_INSTALL_DIR  Deprecated alias kept for migration from the
+                           v1.0.0 "holidaybook" installer.
+  HOLIDAYTW_INSTALL_DIR    Preferred installation directory override.
 EOF
 }
 
 die() {
-  printf 'holidaybook installer: %s\n' "$*" >&2
+  printf 'holidaytw installer: %s\n' "$*" >&2
   exit 1
 }
 
