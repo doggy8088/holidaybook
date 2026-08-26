@@ -24,8 +24,93 @@
   var resultCategory = document.getElementById("result-category");
   var resultDescription = document.getElementById("result-description");
   var resultRaw = document.getElementById("result-raw");
+  var themeToggle = document.getElementById("theme-toggle");
 
   var activeController = null;
+  var activeDate = null;
+
+  /* ---- Manual light/dark theme ---- */
+  var THEME_STORAGE_KEY = "holidaybook-theme";
+  var explicitTheme = null;
+  var colorSchemeQuery = null;
+  var colorSchemeListener = null;
+
+  function readStoredTheme() {
+    try {
+      var stored = window.localStorage && window.localStorage.getItem(THEME_STORAGE_KEY);
+      return stored === "light" || stored === "dark" ? stored : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function updateTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    if (!themeToggle) return;
+
+    var actionLabel = theme === "dark" ? "切換至淺色模式" : "切換至深色模式";
+    themeToggle.textContent = actionLabel;
+    themeToggle.setAttribute("aria-label", actionLabel);
+    themeToggle.setAttribute("title", actionLabel);
+    themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+  }
+
+  function stopFollowingSystemTheme() {
+    if (!colorSchemeQuery || !colorSchemeListener) return;
+    if (typeof colorSchemeQuery.removeEventListener === "function") {
+      colorSchemeQuery.removeEventListener("change", colorSchemeListener);
+    } else if (typeof colorSchemeQuery.removeListener === "function") {
+      colorSchemeQuery.removeListener(colorSchemeListener);
+    }
+    colorSchemeListener = null;
+  }
+
+  function initializeTheme() {
+    explicitTheme = readStoredTheme();
+    if (explicitTheme) {
+      updateTheme(explicitTheme);
+    } else {
+      try {
+        if (typeof window.matchMedia === "function") {
+          colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        }
+      } catch (err) {
+        colorSchemeQuery = null;
+      }
+
+      updateTheme(colorSchemeQuery && colorSchemeQuery.matches ? "dark" : "light");
+      if (colorSchemeQuery) {
+        colorSchemeListener = function (event) {
+          if (explicitTheme === null) {
+            updateTheme(event.matches ? "dark" : "light");
+          }
+        };
+        if (typeof colorSchemeQuery.addEventListener === "function") {
+          colorSchemeQuery.addEventListener("change", colorSchemeListener);
+        } else if (typeof colorSchemeQuery.addListener === "function") {
+          colorSchemeQuery.addListener(colorSchemeListener);
+        }
+      }
+    }
+
+    if (themeToggle) {
+      themeToggle.addEventListener("click", function () {
+        explicitTheme =
+          document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+        stopFollowingSystemTheme();
+        updateTheme(explicitTheme);
+        try {
+          if (window.localStorage) {
+            window.localStorage.setItem(THEME_STORAGE_KEY, explicitTheme);
+          }
+        } catch (err) {
+          /* Theme still applies for this page when storage is unavailable. */
+        }
+      });
+    }
+  }
+
+  initializeTheme();
 
   /** Returns today's date as YYYY-MM-DD in Asia/Taipei local time. */
   function getTaipeiToday() {
@@ -131,11 +216,27 @@
     return normalized === dateStr.replace(/-/g, "");
   }
 
-  function setQueryParam(dateStr) {
+  function getQueryDate() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var fromQuery = params.get("date");
+      return fromQuery && isValidDateStr(fromQuery) ? fromQuery : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function setQueryParam(dateStr, historyMode) {
+    if (historyMode === "none") return;
     try {
       var url = new URL(window.location.href);
+      if (historyMode === "push" && getQueryDate() === dateStr) return;
       url.searchParams.set("date", dateStr);
-      window.history.replaceState(null, "", url.toString());
+      if (historyMode === "push") {
+        window.history.pushState(null, "", url.toString());
+      } else {
+        window.history.replaceState(null, "", url.toString());
+      }
     } catch (err) {
       /* URL API unsupported: skip deep-linking, query still works */
     }
@@ -182,13 +283,14 @@
     setState("error");
   }
 
-  function queryDate(dateStr) {
+  function queryDate(dateStr, historyMode) {
     if (!isValidDateStr(dateStr)) {
       renderError("日期格式不正確，請使用 YYYY-MM-DD 格式，例如 2025-07-20。");
       return;
     }
 
-    setQueryParam(dateStr);
+    activeDate = dateStr;
+    setQueryParam(dateStr, historyMode);
     setState("loading");
 
     if (activeController) {
@@ -197,11 +299,19 @@
     var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     activeController = controller;
 
+    /* Aborting is best-effort: AbortController may be missing, or a polyfilled
+       fetch may ignore the signal. activeDate is the authoritative guard so a
+       superseded response can never overwrite the newest one. */
+    function superseded() {
+      return activeDate !== dateStr;
+    }
+
     fetch(dateStr + ".json", {
       cache: "no-store",
       signal: controller ? controller.signal : undefined
     })
       .then(function (response) {
+        if (superseded()) return null;
         if (response.status === 404) {
           renderEmpty(dateStr);
           return null;
@@ -228,6 +338,7 @@
         renderSuccess(dateStr, data);
       })
       .catch(function (err) {
+        if (superseded()) return;
         if (err && err.name === "AbortError") return;
         renderError("無法連線取得資料，請確認網路連線後再試一次（" + (err && err.message ? err.message : "未知錯誤") + "）。");
       });
@@ -240,25 +351,25 @@
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
-    queryDate(currentInputDate());
+    queryDate(dateInput.value, "push");
   });
 
   prevBtn.addEventListener("click", function () {
     var next = addDays(currentInputDate(), -1);
     dateInput.value = next;
-    queryDate(next);
+    queryDate(next, "push");
   });
 
   nextBtn.addEventListener("click", function () {
     var next = addDays(currentInputDate(), 1);
     dateInput.value = next;
-    queryDate(next);
+    queryDate(next, "push");
   });
 
   todayBtn.addEventListener("click", function () {
     var today = getTaipeiToday();
     dateInput.value = today;
-    queryDate(today);
+    queryDate(today, "push");
   });
 
   quickButtons.forEach(function (btn) {
@@ -266,12 +377,22 @@
       var offset = parseInt(btn.getAttribute("data-offset"), 10) || 0;
       var target = addDays(getTaipeiToday(), offset);
       dateInput.value = target;
-      queryDate(target);
+      queryDate(target, "push");
     });
+  });
+
+  window.addEventListener("popstate", function () {
+    var date = getQueryDate() || getTaipeiToday();
+    dateInput.value = date;
+    if (date === activeDate) return;
+    queryDate(date, "none");
   });
 
   /* ---- Copy-to-clipboard for code samples and raw JSON ---- */
   document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+    var originalLabel = button.textContent;
+    var restoreTimer = null;
+
     button.addEventListener("click", function () {
       var targetId = button.getAttribute("data-copy-target");
       var target = document.getElementById(targetId);
@@ -279,10 +400,13 @@
       var text = target.textContent || "";
 
       var done = function (ok) {
-        var original = button.textContent;
+        if (restoreTimer !== null) {
+          window.clearTimeout(restoreTimer);
+        }
         button.textContent = ok ? "已複製" : "複製失敗";
-        window.setTimeout(function () {
-          button.textContent = original;
+        restoreTimer = window.setTimeout(function () {
+          button.textContent = originalLabel;
+          restoreTimer = null;
         }, 1500);
       };
 
@@ -314,5 +438,5 @@
   /* ---- Boot ---- */
   var initialDate = getInitialDate();
   dateInput.value = initialDate;
-  queryDate(initialDate);
+  queryDate(initialDate, "replace");
 })();
