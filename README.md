@@ -36,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/instal
 指定版本或安裝目錄（也可用環境變數 `HOLIDAYBOOK_INSTALL_DIR` 取代 `--dir`）：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh -s -- --version v0.1.0 --dir "$HOME/bin"
+curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh -s -- --version v1.0.0 --dir "$HOME/bin"
 ```
 
 已 clone 專案時，也可以直接在本機執行腳本：
@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/instal
 ```sh
 git clone https://github.com/doggy8088/holidaybook.git
 cd holidaybook
-sh install.sh --version v0.1.0 --dir "$HOME/bin"
+sh install.sh --version v1.0.0 --dir "$HOME/bin"
 ```
 
 安裝完成後，若安裝目錄已在 `PATH` 中，腳本會提示直接執行 `holidaybook --help`；否則會提示先把該目錄加入 `PATH`。
@@ -62,7 +62,7 @@ irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 |
 ```powershell
 git clone https://github.com/doggy8088/holidaybook.git
 cd holidaybook
-./install.ps1 -Version v0.1.0 -InstallDir "$HOME\bin"
+./install.ps1 -Version v1.0.0 -InstallDir "$HOME\bin"
 ```
 
 安裝完成後，若安裝目錄已在 `PATH` 中可直接執行 `holidaybook --help`；否則腳本會提示加入 `PATH`，或直接以完整路徑執行 `& "<InstallDir>\holidaybook.exe" --help`。
@@ -201,11 +201,11 @@ go build -o holidaybook ./cmd/holidaybook   # 建置執行檔
 ## CI/CD
 
 - **PR CI 與 master push**（`.github/workflows/ci.yml`）：對 Pull Request、push 到 `master` 或手動觸發時執行 `gofmt` 格式檢查、`go test ./...`、`go vet ./...`、`install.sh` 語法檢查（`bash -n`）、`install.ps1` 語法檢查（PowerShell parser）、`goreleaser check`、macOS／Linux／Windows × amd64／arm64 六種組合的交叉建置，以及 `.NET` 產生器單元測試。
-- **發布**（`.github/workflows/release.yml`）：推送符合 `v*` 的 tag 時觸發，先跑 `go test ./...`，再用 [GoReleaser](.goreleaser.yml) 建置並發布 GitHub Release，產出 macOS／Linux／Windows（amd64／arm64）共 6 組壓縮檔（`holidaybook_<os>_<arch>.tar.gz`，Windows 為 `.zip`）與 `checksums.txt`（SHA-256），`install.sh`／`install.ps1` 都會下載並驗證這份 checksum。維護者發布新版時，建立並推送一個帶註解的 tag 即可觸發，例如：
+- **發布**（`.github/workflows/release.yml`）：推送符合 `v*` 的 tag 時觸發，先跑 `go test ./...`，再用 [GoReleaser](.goreleaser.yml) 建置並發布 GitHub Release，產出 macOS／Linux／Windows（amd64／arm64）共 6 組壓縮檔（`holidaybook_<os>_<arch>.tar.gz`，Windows 為 `.zip`）與 `checksums.txt`（SHA-256），`install.sh`／`install.ps1` 都會下載並驗證這份 checksum。維護者發布新版時，建立並推送一個帶註解的 tag 即可觸發；以下以尚未發布的下一版 `v1.0.1` 為例：
 
   ```sh
-  git tag -a v0.1.0 -m "holidaybook v0.1.0"
-  git push origin v0.1.0
+  git tag -a v1.0.1 -m "holidaybook v1.0.1"
+  git push origin v1.0.1
   ```
 
 - **每日資料更新**（`.github/workflows/generate-data.yml`）：每天 UTC 02:00（台灣時間上午 10 點）以及手動觸發時執行，還原、建置、測試並執行 `StaticGenerator`，若 `docs/` 有變更就自動 commit 並 push；產生失敗時，若已設定 SendGrid 相關 secrets 會寄出通知信，並讓該次工作流程回報失敗。

@@ -15,6 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web-static-checks:
+    name: Web static checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Check browser JavaScript syntax
+        run: node --check public/app.js
+
+      - name: Run browser behavior and theme tests
+        run: node --test tests/public-app.test.mjs
+
+      - name: Check public site contract
+        run: node scripts/check-public.mjs
+
   go-quality:
     name: Go quality and delivery checks
     runs-on: ubuntu-latest
