@@ -228,7 +228,17 @@
       <div class="section__header">
         <p class="section__kicker">安裝 CLI</p>
         <h2 id="install-heading">一行指令安裝</h2>
-        <p class="section__lede">複製下面對應你系統的那一行貼進終端機就可以了。隨附的安裝腳本會自動判斷平台與 CPU 架構、從 GitHub Releases 取得對應的執行檔，並比對官方的 <code>checksums.txt</code> 驗證 SHA-256；雜湊不符就會中止安裝。</p>
+        <p class="section__lede">有 Node.js 的環境可用 npm／npx 直接安裝；也可以複製下面對應你系統的那一行。所有路徑都會自動判斷平台與 CPU 架構，並比對官方的 <code>checksums.txt</code> 驗證 SHA-256；雜湊不符就會中止安裝。</p>
+      </div>
+
+      <div id="npm-install-card" class="npm-install" role="region" aria-labelledby="npm-install-heading">
+        <h3 id="npm-install-heading" class="npm-install__heading">npm／npx：任何支援 Node.js 的平台都能用</h3>
+        <p class="npm-install__note">需要 Node.js 20 以上。全域安裝一次，之後就能在終端機直接使用 <code>holidaytw</code>；npm wrapper 會自動下載並驗證正確的原生執行檔。</p>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="npm-install">複製</button>
+          <pre tabindex="0"><code id="npm-install">npm install -g holidaytw</code></pre>
+        </div>
+        <p class="npm-install__direct">只想試用、不想全域安裝，可直接執行 <code>npx holidaytw --json YYYY-MM-DD</code>；Agent 或 CI 請使用 <code>npx --yes holidaytw --json YYYY-MM-DD</code>。</p>
       </div>
 
       <div class="install-tabs">
@@ -272,7 +282,7 @@
 
       <div class="install-footnote">
         <p>不帶參數執行時安裝的是 <strong>latest release</strong>（永遠對應 GitHub Releases 上最新的版本）。腳本不會自動修改 <code>PATH</code>；安裝目錄若不在 <code>PATH</code> 中，腳本會在結束時提示你加入。</p>
-        <p>要指定版本、改安裝目錄，或想自己下載壓縮檔與 <code>checksums.txt</code> 手動安裝，請參考 <a href="https://github.com/doggy8088/holidaybook/releases" target="_blank" rel="noopener">GitHub Releases</a>；CLI 目前僅透過 Releases 發布，不提供 Homebrew、apt 或 winget 等套件管理員安裝方式。</p>
+        <p>npm／npx 是跨平台的快速入口；要指定版本、改原生執行檔安裝目錄，或想自己下載壓縮檔與 <code>checksums.txt</code> 手動安裝，請參考 <a href="https://github.com/doggy8088/holidaybook/releases" target="_blank" rel="noopener">GitHub Releases</a>。原生安裝腳本仍不會自動修改 <code>PATH</code>，也不需要 Homebrew、apt 或 winget。</p>
       </div>
 
       <div class="agent-skill" id="agent-skill" role="region" aria-labelledby="agent-skill-heading">
@@ -282,7 +292,7 @@
           <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="agent-skill-install">複製</button>
           <pre tabindex="0"><code id="agent-skill-install">npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill</code></pre>
         </div>
-        <p class="agent-skill__detail">技能載入後會依序自動判斷環境：本機已安裝 <code>holidaytw</code> 就直接使用；否則會依作業系統自動切換成上方的 macOS／Linux 或 Windows 官方一行安裝指令；最後才會退回直接呼叫 HTTPS JSON API 讀取資料。在 npm 套件正式發布並確認名稱所有權前，skill 不會執行尚未受信任的 <code>npx holidaytw</code>／<code>npm install holidaytw</code>，發布後再更新這條安全安裝路徑。</p>
+        <p class="agent-skill__detail">技能載入後會依序自動判斷環境：本機已安裝 <code>holidaytw</code> 就直接使用；若有 Node.js／npm，會先使用已正式發布且已確認名稱所有權的官方 <code>npx --yes holidaytw</code>；失敗後才依作業系統自動切換成上方的 macOS／Linux 或 Windows 官方一行安裝指令；最後才會退回直接呼叫 HTTPS JSON API 讀取資料。</p>
         <p class="agent-skill__detail">如果想一次安裝到所有支援的代理人，可以改用 <code>npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill --all</code>；預設指令則會先讓你挑選要安裝的代理人與安裝範圍。</p>
       </div>
     </div>

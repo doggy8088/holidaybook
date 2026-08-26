@@ -23,9 +23,26 @@ Holidaybook 提供台灣假日資訊的完整取用方式：一個自訂網域�
 
 ## 安裝 CLI
 
-CLI 目前僅透過 GitHub Releases 發布可執行檔（不提供 Homebrew、apt、winget 等套件管理員安裝方式）。
+CLI 提供跨平台的 npm／npx wrapper，以及 GitHub Releases 原生執行檔安裝方式。npm wrapper 會在安裝時從同一個 GitHub Release 下載並驗證對應平台的 `holidaytw` 執行檔。
 
 > **版本與命名遷移**：v1.0.0 發布的可執行檔名稱是 `holidaybook`；自 v2.0.0 起，可執行檔／指令名稱已更名為 **`holidaytw`**（GitHub repository 仍是 `doggy8088/holidaybook`、Go module 仍是 `github.com/doggy8088/holidaybook`，皆未變動）。安裝腳本的環境變數也從 `HOLIDAYBOOK_INSTALL_DIR` 改名為 `HOLIDAYTW_INSTALL_DIR`；為了讓舊使用者能平順遷移，安裝腳本仍會接受舊的 `HOLIDAYBOOK_INSTALL_DIR`，但只要有設定 `HOLIDAYTW_INSTALL_DIR`（或帶入 `--dir`／`-InstallDir`）就一律優先採用新名稱，安裝腳本從不刪除既有的 `holidaybook` 執行檔。
+
+### npm / npx（跨平台推薦）
+
+需要 Node.js **20 以上**。全域安裝後即可在任何終端機使用：
+
+```sh
+npm install -g holidaytw
+holidaytw --json 2025-10-10
+```
+
+只想直接執行、不想修改全域 npm 安裝目錄：
+
+```sh
+npx holidaytw --json 2025-10-10
+```
+
+`npx` 與 npm wrapper 會自動選擇 macOS、Windows 或 Linux 的原生執行檔，並在安裝階段驗證 GitHub Release 的 `checksums.txt`。若要在非互動式 Agent 或 CI 中使用，建議加上 `--yes`：`npx --yes holidaytw --json YYYY-MM-DD`。
 
 ### macOS / Linux
 
@@ -143,7 +160,7 @@ CLI 的 `--json` 輸出是穩定的代理人介面，欄位固定為：
 
 > Use `$query-taiwan-holiday` to check whether a specific Taiwan date is a holiday or workday and return structured data.
 
-該 skill 的行為：依序嘗試已安裝的 `holidaytw`，或執行官方 `install.sh`／`install.ps1` 後再解析安裝路徑；任一步驟失敗只會繼續嘗試下一步，並非直接判定查詢失敗，只有全部步驟（含靜態 JSON fallback）都失敗時才回報查詢失敗。靜態 JSON fallback 為 `curl` 直接查詢（`https://holiday.gh.miniasp.com/YYYY-MM-DD.json`）。並要求代理人解析 JSON 而非用文字比對、日期需先驗證為合法的 `YYYY-MM-DD`。在官方 npm 套件完成首次發布並確認名稱所有權前，skill 不會執行尚未受信任的 `npx holidaytw`／`npm install holidaytw`；正式發布後會再更新 npm 安裝路徑。
+該 skill 的行為：依序嘗試已安裝的 `holidaytw`，若環境有 Node.js／npm 則使用已正式發布且已確認名稱所有權的官方 `npx --yes holidaytw`，再依作業系統執行官方 `install.sh`／`install.ps1` 並解析安裝路徑；任一步驟失敗只會繼續嘗試下一步，並非直接判定查詢失敗，只有全部步驟（含靜態 JSON fallback）都失敗時才回報查詢失敗。靜態 JSON fallback 為 `curl` 直接查詢（`https://holiday.gh.miniasp.com/YYYY-MM-DD.json`）。並要求代理人解析 JSON 而非用文字比對、日期需先驗證為合法的 `YYYY-MM-DD`。
 
 ## 假日資料的注意事項
 

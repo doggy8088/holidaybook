@@ -805,6 +805,44 @@ code,
   background: var(--accent-tint);
 }
 
+/* npm is the shortest cross-platform path, so give it a calm standalone
+   surface before the OS-specific installer tabs. */
+.npm-install {
+  min-width: 0;
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.npm-install > * {
+  min-width: 0;
+}
+
+.npm-install__heading {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.npm-install__note,
+.npm-install__direct {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.npm-install .code-block {
+  margin: var(--space-3) 0;
+}
+
+.npm-install__direct {
+  margin-bottom: 0;
+}
+
 /* A single contained surface holds the tab strip and the active panel, instead
    of two separate side-by-side cards duplicating the same chrome. */
 .install-tabs {
