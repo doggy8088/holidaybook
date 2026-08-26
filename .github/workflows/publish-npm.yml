@@ -1,0 +1,311 @@
+name: Publish npm package
+
+# IMPORTANT: This filename (publish-npm.yml) is the npm Trusted Publisher identity for the
+# `holidaytw` package (provider: GitHub Actions, owner: doggy8088, repo: holidaybook,
+# workflow: publish-npm.yml, environment: npm). Do not rename this file or the `npm`
+# environment without updating the Trusted Publisher configuration on npmjs.com first,
+# otherwise publishing will fail with an authentication error.
+#
+# This workflow never bootstraps the package and never uses a token/secret to authenticate
+# to npm. Authentication is performed exclusively via npm Trusted Publishing (OIDC), which
+# requires the package to already exist on npm (published once, out-of-band, as a
+# non-latest prerelease such as 2.0.0-bootstrap.0 under a `bootstrap` dist-tag) and the
+# Trusted Publisher to already be configured for this exact workflow + environment.
+#
+# `workflow_call` is intentionally not used: npm validates the identity of the workflow that
+# actually invokes `npm publish`, and delegating through a reusable/called workflow can break
+# that identity check. A GitHub Release created with the default GITHUB_TOKEN also does not
+# reliably emit a downstream `release` event, so this workflow does not react to
+# release-published events.
+#
+# Trigger is workflow_dispatch-only (no `push: tags: v*`). For the very first release, the
+# v2.0.0 tag/GitHub Release is created by release.yml before the npm package exists and
+# before the Trusted Publisher is configured, so an automatic tag-triggered npm publish would
+# be a guaranteed failure. Publishing is a deliberate, manual step performed once local
+# bootstrap (2.0.0-bootstrap.0 under the `bootstrap` dist-tag) and Trusted Publisher setup are
+# complete.
+#
+# The workflow run itself must be dispatched against the exact tag ref (not master/main with
+# a typed tag input): maintainers should run `gh workflow run publish-npm.yml --ref vX.Y.Z -f
+# tag=vX.Y.Z` (or pick the tag from the "Use workflow from" dropdown in the Actions UI). This
+# keeps the OIDC/provenance attestation's git ref aligned with the immutable release tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish to npm (e.g. v2.0.0)"
+        required: true
+        default: "v2.0.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "publish-npm-${{ inputs.tag }}"
+  cancel-in-progress: false
+
+env:
+  PACKAGE_DIR: npm/holidaytw
+  NATIVE_CLI_NAME: holidaytw
+  REPO: doggy8088/holidaybook
+  MIN_NPM_VERSION: 11.5.1
+
+jobs:
+  publish:
+    name: Publish holidaytw to npm
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/holidaytw
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Resolve and validate release tag
+        id: tag
+        shell: bash
+        env:
+          RELEASE_TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_TAG_INPUT}"
+
+          # Only a stable "vX.Y.Z" tag may be published (no prerelease/build metadata).
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag '${tag}' is not a stable vX.Y.Z tag; refusing to publish"
+            exit 1
+          fi
+
+          # Require this run itself to have been dispatched from the exact tag ref, not
+          # merely from a branch (e.g. master) while the input happens to name a tag.
+          # npm Trusted Publishing provenance attests to the workflow run's own git ref
+          # (GITHUB_REF); if that ref were a branch, the attestation would not identify
+          # the immutable release tag actually being published.
+          expected_ref="refs/tags/${tag}"
+          if [ "${GITHUB_REF}" != "${expected_ref}" ]; then
+            echo "::error::This run was dispatched against '${GITHUB_REF}', but the 'tag' input is '${tag}'. Re-dispatch this workflow with the ref set to the tag itself, e.g.: gh workflow run publish-npm.yml --ref ${tag} -f tag=${tag}  (or, in the GitHub UI 'Run workflow' dialog, pick '${tag}' from the branch/tag dropdown before running), so OIDC/provenance is attributed to the released tag."
+            exit 1
+          fi
+
+          version="${tag#v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag=${tag} version=${version}"
+
+      - name: Checkout repository at release tag
+        uses: actions/checkout@v7
+        with:
+          ref: "refs/tags/${{ steps.tag.outputs.tag }}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      # This never mutates the npm CLI (no `npm install -g npm@latest`, which is unpinned
+      # and could silently change behavior between runs). Node 24's bundled npm must
+      # already satisfy the minimum version; if it doesn't, upgrade the Node 24 toolchain
+      # instead of patching npm here.
+      - name: Verify bundled npm CLI supports Trusted Publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(npm --version)"
+          echo "Bundled npm version: ${current}"
+          lowest="$(printf '%s\n%s\n' "${MIN_NPM_VERSION}" "${current}" | sort -V | head -n1)"
+          if [ "${lowest}" != "${MIN_NPM_VERSION}" ]; then
+            echo "::error::Bundled npm ${current} is older than the minimum ${MIN_NPM_VERSION} required for Trusted Publishing"
+            exit 1
+          fi
+
+      - name: Verify package version matches release tag
+        shell: bash
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          set -euo pipefail
+          expected="${{ steps.tag.outputs.version }}"
+          package_name="$(node -p "require('./package.json').name")"
+          actual="$(node -p "require('./package.json').version")"
+          native="$(node -p "require('./package.json').holidaytw?.nativeVersion || ''")"
+          native_repository="$(node -p "require('./package.json').holidaytw?.nativeRepository || ''")"
+          echo "Package name:      ${package_name}"
+          echo "Expected version: ${expected}"
+          echo "Package version:  ${actual}"
+          echo "Native version:   ${native}"
+          echo "Native repository:${native_repository}"
+          if [ "${package_name}" != "${NATIVE_CLI_NAME}" ]; then
+            echo "::error::package.json name (${package_name}) must be ${NATIVE_CLI_NAME}"
+            exit 1
+          fi
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::package.json version (${actual}) does not equal release tag version (${expected})"
+            exit 1
+          fi
+          if [ "${native}" != "${expected}" ]; then
+            echo "::error::holidaytw.nativeVersion (${native}) does not equal release tag version (${expected})"
+            exit 1
+          fi
+          if [ "${native_repository}" != "${REPO}" ]; then
+            echo "::error::holidaytw.nativeRepository (${native_repository}) does not equal ${REPO}"
+            exit 1
+          fi
+
+      - name: Wait for GitHub Release and native archives
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.tag.outputs.tag }}"
+
+          declare -a expected_assets=(
+            "${NATIVE_CLI_NAME}_darwin_amd64.tar.gz"
+            "${NATIVE_CLI_NAME}_darwin_arm64.tar.gz"
+            "${NATIVE_CLI_NAME}_linux_amd64.tar.gz"
+            "${NATIVE_CLI_NAME}_linux_arm64.tar.gz"
+            "${NATIVE_CLI_NAME}_windows_amd64.zip"
+            "${NATIVE_CLI_NAME}_windows_arm64.zip"
+            "checksums.txt"
+          )
+
+          # release.yml (goreleaser) may still be uploading assets concurrently on tag push,
+          # so poll with a bounded timeout instead of failing on the first miss.
+          timeout_seconds=900
+          interval_seconds=20
+          elapsed=0
+          found=""
+
+          while [ "${elapsed}" -lt "${timeout_seconds}" ]; do
+            if names="$(gh release view "${tag}" --repo "${REPO}" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+              missing=0
+              for asset in "${expected_assets[@]}"; do
+                if ! grep -qx "${asset}" <<< "${names}"; then
+                  missing=1
+                  break
+                fi
+              done
+              if [ "${missing}" -eq 0 ]; then
+                found="${names}"
+                break
+              fi
+            fi
+            echo "Release assets not fully available yet; retrying in ${interval_seconds}s (elapsed ${elapsed}s)"
+            sleep "${interval_seconds}"
+            elapsed=$((elapsed + interval_seconds))
+          done
+
+          if [ -z "${found}" ]; then
+            echo "::error::Timed out waiting for GitHub Release '${tag}' to publish all 6 native archives and checksums.txt"
+            exit 1
+          fi
+
+          echo "All expected release assets are present for ${tag}:"
+          echo "${found}"
+
+      # Metadata/name presence alone is insufficient: download only checksums.txt (never
+      # the archives/binaries themselves) and verify it contains exactly one well-formed
+      # 64-hex sha256 entry for each of the six expected native archives. Every nonblank
+      # line must match a strict, anchored format; any duplicate filename (even with an
+      # identical hash) is rejected. Additional uniquely named, well-formed entries (e.g.
+      # future release metadata files) are tolerated.
+      - name: Verify checksums.txt content
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.tag.outputs.tag }}"
+          dest="${RUNNER_TEMP}/checksums.txt"
+          rm -f "${dest}"
+          gh release download "${tag}" --repo "${REPO}" --pattern 'checksums.txt' --output "${dest}"
+
+          if [ ! -s "${dest}" ]; then
+            echo "::error::Downloaded checksums.txt is missing or empty"
+            exit 1
+          fi
+
+          declare -A seen_hash
+          line_no=0
+          while IFS= read -r raw_line || [ -n "${raw_line}" ]; do
+            line_no=$((line_no + 1))
+            # Tolerate CRLF line endings by trimming a single trailing \r.
+            line="${raw_line%$'\r'}"
+            [ -z "${line}" ] && continue
+
+            # Anchored full-line match: 64 hex chars, whitespace, an optional
+            # standard sha256sum "*" (binary-mode) marker, then a filename
+            # restricted to a safe character set (letters/digits/dot/
+            # underscore/hyphen). No extra leading/trailing content is
+            # tolerated. The filename is only ever used as an associative-array
+            # subscript *after* this regex has validated its character set.
+            if [[ ! "${line}" =~ ^([0-9a-fA-F]{64})[[:space:]]+\*?([A-Za-z0-9._-]+)$ ]]; then
+              echo "::error::Malformed checksums.txt line ${line_no}: ${raw_line}"
+              exit 1
+            fi
+            hash="${BASH_REMATCH[1]}"
+            name="${BASH_REMATCH[2]}"
+
+            # Reject ANY duplicate filename, even if the hash is identical:
+            # each entry must appear exactly once.
+            if [ -n "${seen_hash[${name}]+set}" ]; then
+              echo "::error::Duplicate checksums.txt entry for ${name} (line ${line_no}); each filename must appear exactly once"
+              exit 1
+            fi
+            seen_hash["${name}"]="${hash}"
+          done < "${dest}"
+
+          declare -a expected_archives=(
+            "${NATIVE_CLI_NAME}_darwin_amd64.tar.gz"
+            "${NATIVE_CLI_NAME}_darwin_arm64.tar.gz"
+            "${NATIVE_CLI_NAME}_linux_amd64.tar.gz"
+            "${NATIVE_CLI_NAME}_linux_arm64.tar.gz"
+            "${NATIVE_CLI_NAME}_windows_amd64.zip"
+            "${NATIVE_CLI_NAME}_windows_arm64.zip"
+          )
+          missing=()
+          for asset in "${expected_archives[@]}"; do
+            if [ -z "${seen_hash[${asset}]:-}" ]; then
+              missing+=("${asset}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::checksums.txt is missing valid entries for: ${missing[*]}"
+            exit 1
+          fi
+
+          echo "checksums.txt verified: exactly one valid 64-hex sha256 entry for all 6 native archives."
+          rm -f "${dest}"
+
+      # package-lock.json is required: this always uses `npm ci` and never silently falls
+      # back to `npm install`, so the committed lockfile is the single source of truth.
+      - name: Install dependencies (scripts disabled)
+        shell: bash
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          set -euo pipefail
+          if [ ! -f package-lock.json ]; then
+            echo "::error::package-lock.json is required in ${PACKAGE_DIR} but was not found"
+            exit 1
+          fi
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run package built-in tests
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm test
+
+      # Real `npm pack` + full content/metadata verification, delegated to the package's
+      # own check rather than duplicating a weaker ad hoc listing here.
+      - name: Verify packed tarball contents
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run pack:check
+
+      # Publishes exactly once. Authentication is via npm Trusted Publishing OIDC (no token,
+      # no --provenance flag: npm attaches provenance automatically for trusted publishes).
+      # If this version was already published, `npm publish` fails loudly (e.g. EPUBLISHCONFLICT)
+      # instead of being treated as success, so reruns are honest.
+      - name: Publish to npm
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm publish --access public
