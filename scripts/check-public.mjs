@@ -70,15 +70,33 @@ function hasThemeVariables(body) {
 }
 
 /* Install one-liners contain characters that must be escaped in HTML, so the
-   markup is compared against the real command rather than its entity form. */
+   markup is compared against the real command rather than its entity form.
+
+   This is a true single pass: every reference is consumed by one regex match
+   and the replacement output is never rescanned. That ordering matters, because
+   chained replacements would mis-handle an escaped ampersand followed by an
+   entity name -- "&#38;amp;" is the HTML source for the literal text "&amp;",
+   not for "&". For the same reason "&amp;lt;" must decode to the literal text
+   "&lt;" and never to "<"; decoding it twice is the classic double-decode bug. */
+const NAMED_ENTITIES = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: " ",
+  quot: '"',
+};
+
 function decodeEntities(source) {
-  return source
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&nbsp;", " ")
-    .replaceAll("&amp;", "&");
+  return source.replace(
+    /&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z][a-zA-Z0-9]*));/g,
+    (match, decimal, hex, name) => {
+      if (decimal !== undefined) return String.fromCodePoint(Number(decimal));
+      if (hex !== undefined) return String.fromCodePoint(parseInt(hex, 16));
+      const decoded = NAMED_ENTITIES[name.toLowerCase()];
+      return decoded === undefined ? match : decoded;
+    },
+  );
 }
 
 const cname = readRequired("GitHub Pages CNAME", paths.cname);
