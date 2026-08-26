@@ -25,6 +25,8 @@ Holidaybook 提供台灣假日資訊的完整取用方式：一個自訂網域�
 
 CLI 目前僅透過 GitHub Releases 發布可執行檔（不提供 Homebrew、apt、winget 等套件管理員安裝方式）。
 
+> **版本與命名遷移**：v1.0.0 發布的可執行檔名稱是 `holidaybook`；自 v2.0.0 起，可執行檔／指令名稱已更名為 **`holidaytw`**（GitHub repository 仍是 `doggy8088/holidaybook`、Go module 仍是 `github.com/doggy8088/holidaybook`，皆未變動）。安裝腳本的環境變數也從 `HOLIDAYBOOK_INSTALL_DIR` 改名為 `HOLIDAYTW_INSTALL_DIR`；為了讓舊使用者能平順遷移，安裝腳本仍會接受舊的 `HOLIDAYBOOK_INSTALL_DIR`，但只要有設定 `HOLIDAYTW_INSTALL_DIR`（或帶入 `--dir`／`-InstallDir`）就一律優先採用新名稱，安裝腳本從不刪除既有的 `holidaybook` 執行檔。
+
 ### macOS / Linux
 
 以 `install.sh` 下載最新版並安裝到 `~/.local/bin`（若 `HOME` 未設定則需自行指定 `--dir`）：
@@ -33,10 +35,10 @@ CLI 目前僅透過 GitHub Releases 發布可執行檔（不提供 Homebrew、ap
 curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh
 ```
 
-指定版本或安裝目錄（也可用環境變數 `HOLIDAYBOOK_INSTALL_DIR` 取代 `--dir`）：
+指定版本或安裝目錄（也可用環境變數 `HOLIDAYTW_INSTALL_DIR` 取代 `--dir`；舊的 `HOLIDAYBOOK_INSTALL_DIR` 仍可作為過渡別名，但 `HOLIDAYTW_INSTALL_DIR` 與 `--dir` 優先權較高）：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh -s -- --version v1.0.0 --dir "$HOME/bin"
+curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh -s -- --version v2.0.0 --dir "$HOME/bin"
 ```
 
 已 clone 專案時，也可以直接在本機執行腳本：
@@ -44,43 +46,43 @@ curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/instal
 ```sh
 git clone https://github.com/doggy8088/holidaybook.git
 cd holidaybook
-sh install.sh --version v1.0.0 --dir "$HOME/bin"
+sh install.sh --version v2.0.0 --dir "$HOME/bin"
 ```
 
-安裝完成後，若安裝目錄已在 `PATH` 中，腳本會提示直接執行 `holidaybook --help`；否則會提示先把該目錄加入 `PATH`。
+安裝完成後，若安裝目錄已在 `PATH` 中，腳本會提示直接執行 `holidaytw --help`；否則會提示先把該目錄加入 `PATH`。可用 `holidaytw --version` 確認安裝成功。
 
 ### Windows
 
-以 `install.ps1` 下載最新版，預設安裝到 `%LOCALAPPDATA%\Programs\holidaybook`：
+以 `install.ps1` 下載最新版，預設安裝到 `%LOCALAPPDATA%\Programs\holidaytw`：
 
 ```powershell
 irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex
 ```
 
-指定版本或安裝目錄時，建議先下載腳本再帶參數執行（`-Version`、`-InstallDir`）：
+指定版本或安裝目錄時，建議先下載腳本再帶參數執行（`-Version`、`-InstallDir`；也可用環境變數 `HOLIDAYTW_INSTALL_DIR` 取代 `-InstallDir`，舊的 `HOLIDAYBOOK_INSTALL_DIR` 仍可作為過渡別名）：
 
 ```powershell
 git clone https://github.com/doggy8088/holidaybook.git
 cd holidaybook
-./install.ps1 -Version v1.0.0 -InstallDir "$HOME\bin"
+./install.ps1 -Version v2.0.0 -InstallDir "$HOME\bin"
 ```
 
-安裝完成後，若安裝目錄已在 `PATH` 中可直接執行 `holidaybook --help`；否則腳本會提示加入 `PATH`，或直接以完整路徑執行 `& "<InstallDir>\holidaybook.exe" --help`。
+安裝完成後，若安裝目錄已在 `PATH` 中可直接執行 `holidaytw --help`；否則腳本會提示加入 `PATH`，或直接以完整路徑執行 `& "<InstallDir>\holidaytw.exe" --help`。可用 `holidaytw --version` 確認安裝成功。
 
 ## CLI 使用方式
 
 人類可讀輸出：
 
 ```console
-$ holidaybook 2025-10-10
+$ holidaytw 2025-10-10
 2025-10-10：放假（國慶日）
 類別：放假之紀念日及節日
 說明：全國各機關學校放假一日。
 
-$ holidaybook 2025-10-14
+$ holidaytw 2025-10-14
 2025-10-14：上班日
 
-$ holidaybook 2025-09-03
+$ holidaytw 2025-09-03
 2025-09-03：上班日（軍人節）
 類別：特定節日
 說明：軍人依國防部規定辦理。
@@ -89,10 +91,10 @@ $ holidaybook 2025-09-03
 機器可讀輸出（`--json`，方便串接腳本或代理人）：
 
 ```console
-$ holidaybook --json 2025-10-10
+$ holidaytw --json 2025-10-10
 {"date":"2025-10-10","isHoliday":true,"name":"國慶日","category":"放假之紀念日及節日","description":"全國各機關學校放假一日。"}
 
-$ holidaybook --json 2025-10-14
+$ holidaytw --json 2025-10-14
 {"date":"2025-10-14","isHoliday":false,"name":"","category":"","description":""}
 ```
 
@@ -132,11 +134,16 @@ CLI 的 `--json` 輸出是穩定的代理人介面，欄位固定為：
 
 ### Repository skill
 
-專案內建可分享的 agent skill：[`.github/skills/query-taiwan-holiday`](.github/skills/query-taiwan-holiday/SKILL.md)（含 `SKILL.md` 查詢/錯誤處理慣例，以及 `agents/openai.yaml` 介面中繼資料）。任何支援 repository skills 的代理人都可以直接載入使用，範例提示（取自 `agents/openai.yaml` 的 `default_prompt`）：
+專案內建可分享的 agent skill，共兩份行為一致的定義：
+
+- 根目錄（canonical）：[`skill/SKILL.md`](skill/SKILL.md)
+- Repository-scoped 副本：[`.github/skills/query-taiwan-holiday`](.github/skills/query-taiwan-holiday/SKILL.md)（含 `SKILL.md` 與 `agents/openai.yaml` 介面中繼資料）
+
+任何支援 repository skills 的代理人都可以直接載入使用，範例提示（取自 `agents/openai.yaml` 的 `default_prompt`）：
 
 > Use `$query-taiwan-holiday` to check whether a specific Taiwan date is a holiday or workday and return structured data.
 
-該 skill 的行為：優先使用已安裝的 `holidaybook --json YYYY-MM-DD`；若 CLI 不可用，才 fallback 到直接 `curl` 靜態 JSON（`https://holiday.gh.miniasp.com/YYYY-MM-DD.json`），並要求代理人解析 JSON 而非用文字比對、日期需先驗證為合法的 `YYYY-MM-DD`、查詢失敗時明確回報而不臆測。
+該 skill 的行為：依序嘗試已安裝的 `holidaytw`，或執行官方 `install.sh`／`install.ps1` 後再解析安裝路徑；任一步驟失敗只會繼續嘗試下一步，並非直接判定查詢失敗，只有全部步驟（含靜態 JSON fallback）都失敗時才回報查詢失敗。靜態 JSON fallback 為 `curl` 直接查詢（`https://holiday.gh.miniasp.com/YYYY-MM-DD.json`）。並要求代理人解析 JSON 而非用文字比對、日期需先驗證為合法的 `YYYY-MM-DD`。在官方 npm 套件完成首次發布並確認名稱所有權前，skill 不會執行尚未受信任的 `npx holidaytw`／`npm install holidaytw`；正式發布後會再更新 npm 安裝路徑。
 
 ## 假日資料的注意事項
 
@@ -155,7 +162,7 @@ CLI 的 `--json` 輸出是穩定的代理人介面，欄位固定為：
 gofmt -l $(git ls-files '*.go')   # 檢查格式（有輸出代表需要 gofmt）
 go test ./...                    # 執行單元測試
 go vet ./...                     # 靜態檢查
-go build -o holidaybook ./cmd/holidaybook   # 建置執行檔
+go build -o holidaytw ./cmd/holidaytw   # 建置執行檔
 ```
 
 ### .NET 8 靜態產生器
@@ -201,11 +208,11 @@ go build -o holidaybook ./cmd/holidaybook   # 建置執行檔
 ## CI/CD
 
 - **PR CI 與 master push**（`.github/workflows/ci.yml`）：對 Pull Request、push 到 `master` 或手動觸發時執行 `gofmt` 格式檢查、`go test ./...`、`go vet ./...`、`install.sh` 語法檢查（`bash -n`）、`install.ps1` 語法檢查（PowerShell parser）、`goreleaser check`、macOS／Linux／Windows × amd64／arm64 六種組合的交叉建置，以及 `.NET` 產生器單元測試。
-- **發布**（`.github/workflows/release.yml`）：推送符合 `v*` 的 tag 時觸發，先跑 `go test ./...`，再用 [GoReleaser](.goreleaser.yml) 建置並發布 GitHub Release，產出 macOS／Linux／Windows（amd64／arm64）共 6 組壓縮檔（`holidaybook_<os>_<arch>.tar.gz`，Windows 為 `.zip`）與 `checksums.txt`（SHA-256），`install.sh`／`install.ps1` 都會下載並驗證這份 checksum。維護者發布新版時，建立並推送一個帶註解的 tag 即可觸發；以下以尚未發布的下一版 `v1.0.1` 為例：
+- **發布**（`.github/workflows/release.yml`）：推送符合 `v*` 的 tag 時觸發，先跑 `go test ./...`，再用 [GoReleaser](.goreleaser.yml) 建置並發布 GitHub Release，產出 macOS／Linux／Windows（amd64／arm64）共 6 組壓縮檔（`holidaytw_<os>_<arch>.tar.gz`，Windows 為 `.zip`）與 `checksums.txt`（SHA-256），`install.sh`／`install.ps1` 都會下載並驗證這份 checksum。維護者發布新版時，建立並推送一個帶註解的 tag 即可觸發；v1.0.0 是舊執行檔名稱 `holidaybook` 最後一版，往後（`v2.0.0` 起）發布的都是更名後的 `holidaytw`；以下以尚未發布的下一個主版本 `v2.0.0` 為例：
 
   ```sh
-  git tag -a v1.0.1 -m "holidaybook v1.0.1"
-  git push origin v1.0.1
+  git tag -a v2.0.0 -m "holidaytw v2.0.0"
+  git push origin v2.0.0
   ```
 
 - **每日資料更新**（`.github/workflows/generate-data.yml`）：每天 UTC 02:00（台灣時間上午 10 點）以及手動觸發時執行，還原、建置、測試並執行 `StaticGenerator`，若 `docs/` 有變更就自動 commit 並 push；產生失敗時，若已設定 SendGrid 相關 secrets 會寄出通知信，並讓該次工作流程回報失敗。
