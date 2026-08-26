@@ -21,8 +21,8 @@ class Element {
     this.listeners.set(type, listeners);
   }
 
-  dispatch(type) {
-    const event = { preventDefault() {} };
+  dispatch(type, detail) {
+    const event = Object.assign({ preventDefault() {} }, detail);
     for (const listener of this.listeners.get(type) || []) listener(event);
   }
 
@@ -33,6 +33,15 @@ class Element {
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
   }
+
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
+  /* Overridden per-instance in createHarness so focus() can update that
+     harness's own activeElementId tracking; a no-op here covers elements
+     created outside that wiring (e.g. quick-date buttons). */
+  focus() {}
 
   select() {}
 }
@@ -45,10 +54,36 @@ function createHarness(
     "query-form", "date-input", "prev-day", "next-day", "today-btn",
     "result", "error-message", "empty-message", "result-date", "result-badge",
     "result-name", "result-category", "result-description", "result-raw",
-    "copy-source", "theme-toggle"
+    "copy-source", "theme-toggle",
+    "install-tab-posix", "install-tab-powershell",
+    "install-panel-posix", "install-panel-powershell",
+    "install-posix", "install-powershell", "agent-skill-install"
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, new Element()]));
   elements["copy-source"].textContent = "copy me";
+  elements["install-posix"].textContent =
+    "curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh";
+  elements["install-powershell"].textContent =
+    "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex";
+  elements["agent-skill-install"].textContent =
+    "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
+
+  /* Mirrors the real markup's initial state: the posix tab starts selected and
+     focusable, the PowerShell tab starts unselected, and both panels start
+     visible (no hidden attribute) so app.js can enforce single-panel
+     visibility on boot exactly like it would for server-rendered HTML. */
+  elements["install-tab-posix"].setAttribute("aria-selected", "true");
+  elements["install-tab-posix"].setAttribute("aria-controls", "install-panel-posix");
+  elements["install-tab-powershell"].setAttribute("aria-selected", "false");
+  elements["install-tab-powershell"].setAttribute("tabindex", "-1");
+  elements["install-tab-powershell"].setAttribute("aria-controls", "install-panel-powershell");
+
+  let activeElementId = null;
+  for (const id of ids) {
+    elements[id].focus = function () {
+      activeElementId = id;
+    };
+  }
 
   const quickButtons = [0, 1, 7].map((offset) => {
     const button = new Element();
@@ -57,6 +92,18 @@ function createHarness(
   });
   const copyButton = new Element("複製");
   copyButton.setAttribute("data-copy-target", "copy-source");
+  const installPosixCopyButton = new Element("複製");
+  installPosixCopyButton.setAttribute("data-copy-target", "install-posix");
+  const installPowershellCopyButton = new Element("複製");
+  installPowershellCopyButton.setAttribute("data-copy-target", "install-powershell");
+  const agentSkillCopyButton = new Element("複製");
+  agentSkillCopyButton.setAttribute("data-copy-target", "agent-skill-install");
+  const copyButtons = [
+    copyButton,
+    installPosixCopyButton,
+    installPowershellCopyButton,
+    agentSkillCopyButton
+  ];
 
   const document = {
     body: {
@@ -77,7 +124,7 @@ function createHarness(
     },
     querySelectorAll(selector) {
       if (selector === ".quick-dates [data-offset]") return quickButtons;
-      if (selector === "[data-copy-target]") return [copyButton];
+      if (selector === "[data-copy-target]") return copyButtons;
       return [];
     }
   };
@@ -261,8 +308,15 @@ function createHarness(
 
   return {
     copyButton,
+    installPosixCopyButton,
+    installPowershellCopyButton,
+    agentSkillCopyButton,
+    clipboardWrites,
     elements,
     fetchCalls,
+    get activeElementId() {
+      return activeElementId;
+    },
     get colorSchemeListenerCount() {
       return colorSchemeListeners.size;
     },
@@ -632,5 +686,152 @@ test("missing matchMedia safely defaults to light mode", () => {
   assert.equal(
     app.elements["theme-toggle"].getAttribute("aria-pressed"),
     "false"
+  );
+});
+
+/* ---- Native install tabs (macOS/Linux vs Windows PowerShell) ---- */
+
+function installTabState(app) {
+  const posixTab = app.elements["install-tab-posix"];
+  const powershellTab = app.elements["install-tab-powershell"];
+  const posixPanel = app.elements["install-panel-posix"];
+  const powershellPanel = app.elements["install-panel-powershell"];
+  return {
+    posixTab,
+    powershellTab,
+    posixPanel,
+    powershellPanel,
+    posixSelected: posixTab.getAttribute("aria-selected"),
+    powershellSelected: powershellTab.getAttribute("aria-selected"),
+    posixTabindex: posixTab.getAttribute("tabindex"),
+    powershellTabindex: powershellTab.getAttribute("tabindex"),
+    posixHidden: posixPanel.getAttribute("hidden"),
+    powershellHidden: powershellPanel.getAttribute("hidden")
+  };
+}
+
+test("install tabs boot with macOS/Linux selected and the PowerShell panel hidden", () => {
+  const app = createHarness();
+  const state = installTabState(app);
+
+  assert.equal(state.posixSelected, "true");
+  assert.equal(state.powershellSelected, "false");
+  assert.equal(state.posixTabindex, "0");
+  assert.equal(state.powershellTabindex, "-1");
+  assert.equal(state.posixHidden, null);
+  assert.equal(state.powershellHidden, "");
+});
+
+test("clicking the PowerShell tab switches selection and panel visibility without moving focus", () => {
+  const app = createHarness();
+
+  app.elements["install-tab-powershell"].dispatch("click");
+  const state = installTabState(app);
+
+  assert.equal(state.posixSelected, "false");
+  assert.equal(state.powershellSelected, "true");
+  assert.equal(state.posixTabindex, "-1");
+  assert.equal(state.powershellTabindex, "0");
+  assert.equal(state.posixHidden, "");
+  assert.equal(state.powershellHidden, null);
+  assert.equal(app.activeElementId, null);
+});
+
+test("clicking back to the macOS/Linux tab restores it and re-hides the PowerShell panel", () => {
+  const app = createHarness();
+
+  app.elements["install-tab-powershell"].dispatch("click");
+  app.elements["install-tab-posix"].dispatch("click");
+  const state = installTabState(app);
+
+  assert.equal(state.posixSelected, "true");
+  assert.equal(state.powershellSelected, "false");
+  assert.equal(state.posixHidden, null);
+  assert.equal(state.powershellHidden, "");
+});
+
+test("ArrowRight and ArrowLeft move selection and focus between the two tabs, wrapping at both ends", () => {
+  const app = createHarness();
+
+  app.elements["install-tab-posix"].dispatch("keydown", { key: "ArrowRight" });
+  let state = installTabState(app);
+  assert.equal(state.powershellSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-powershell");
+
+  // Wraps forward from the last tab back to the first.
+  app.elements["install-tab-powershell"].dispatch("keydown", { key: "ArrowRight" });
+  state = installTabState(app);
+  assert.equal(state.posixSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-posix");
+
+  // Wraps backward from the first tab to the last.
+  app.elements["install-tab-posix"].dispatch("keydown", { key: "ArrowLeft" });
+  state = installTabState(app);
+  assert.equal(state.powershellSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-powershell");
+
+  app.elements["install-tab-powershell"].dispatch("keydown", { key: "ArrowLeft" });
+  state = installTabState(app);
+  assert.equal(state.posixSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-posix");
+});
+
+test("Home and End jump to the first and last tab and move focus", () => {
+  const app = createHarness();
+
+  app.elements["install-tab-posix"].dispatch("keydown", { key: "End" });
+  let state = installTabState(app);
+  assert.equal(state.powershellSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-powershell");
+
+  app.elements["install-tab-powershell"].dispatch("keydown", { key: "Home" });
+  state = installTabState(app);
+  assert.equal(state.posixSelected, "true");
+  assert.equal(app.activeElementId, "install-tab-posix");
+});
+
+test("unrelated keys on an install tab are ignored", () => {
+  const app = createHarness();
+  let prevented = false;
+
+  app.elements["install-tab-posix"].dispatch("keydown", {
+    key: "Tab",
+    preventDefault() {
+      prevented = true;
+    }
+  });
+
+  const state = installTabState(app);
+  assert.equal(state.posixSelected, "true");
+  assert.equal(state.powershellSelected, "false");
+  assert.equal(prevented, false);
+});
+
+test("install tab copy buttons copy the exact one-command installers", async () => {
+  const app = createHarness();
+
+  app.installPosixCopyButton.dispatch("click");
+  await settle();
+  assert.equal(
+    app.clipboardWrites[app.clipboardWrites.length - 1],
+    "curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh"
+  );
+
+  app.installPowershellCopyButton.dispatch("click");
+  await settle();
+  assert.equal(
+    app.clipboardWrites[app.clipboardWrites.length - 1],
+    "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex"
+  );
+});
+
+test("the Agent Skill copy button copies the exact skills CLI install command", async () => {
+  const app = createHarness();
+
+  app.agentSkillCopyButton.dispatch("click");
+  await settle();
+  assert.equal(
+    app.clipboardWrites[app.clipboardWrites.length - 1],
+    "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill"
   );
 });

@@ -391,6 +391,77 @@
     queryDate(date, "none");
   });
 
+  /* ---- Native install tabs: macOS/Linux vs Windows (PowerShell) ----
+     The markup ships with both tabpanels visible so the exact install
+     commands stay readable and copyable without JavaScript. Once this runs,
+     it enforces the single-visible-panel tab behaviour and wires up standard
+     WAI-ARIA tab keyboard handling (click, ArrowLeft/ArrowRight with
+     wraparound, Home, End). */
+  var installTabs = [
+    {
+      tab: document.getElementById("install-tab-posix"),
+      panel: document.getElementById("install-panel-posix")
+    },
+    {
+      tab: document.getElementById("install-tab-powershell"),
+      panel: document.getElementById("install-panel-powershell")
+    }
+  ];
+
+  if (
+    installTabs[0].tab && installTabs[0].panel &&
+    installTabs[1].tab && installTabs[1].panel
+  ) {
+    var activateInstallTab = function (index, moveFocus) {
+      installTabs.forEach(function (entry, i) {
+        var selected = i === index;
+        entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
+        entry.tab.setAttribute("tabindex", selected ? "0" : "-1");
+        if (selected) {
+          entry.panel.removeAttribute("hidden");
+        } else {
+          entry.panel.setAttribute("hidden", "");
+        }
+      });
+      if (moveFocus) {
+        installTabs[index].tab.focus();
+      }
+    };
+
+    installTabs.forEach(function (entry, index) {
+      entry.tab.addEventListener("click", function () {
+        activateInstallTab(index, false);
+      });
+
+      entry.tab.addEventListener("keydown", function (event) {
+        var lastIndex = installTabs.length - 1;
+        var targetIndex;
+        switch (event.key) {
+          case "ArrowRight":
+            targetIndex = index === lastIndex ? 0 : index + 1;
+            break;
+          case "ArrowLeft":
+            targetIndex = index === 0 ? lastIndex : index - 1;
+            break;
+          case "Home":
+            targetIndex = 0;
+            break;
+          case "End":
+            targetIndex = lastIndex;
+            break;
+          default:
+            return;
+        }
+        event.preventDefault();
+        activateInstallTab(targetIndex, true);
+      });
+    });
+
+    var initialInstallIndex =
+      installTabs[1].tab.getAttribute("aria-selected") === "true" ? 1 : 0;
+    activateInstallTab(initialInstallIndex, false);
+  }
+
   /* ---- Copy-to-clipboard for code samples and raw JSON ---- */
   document.querySelectorAll("[data-copy-target]").forEach(function (button) {
     var originalLabel = button.textContent;

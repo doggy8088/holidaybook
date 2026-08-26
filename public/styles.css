@@ -805,52 +805,97 @@ code,
   background: var(--accent-tint);
 }
 
-.install-grid {
-  display: grid;
-  gap: var(--space-5);
-  grid-template-columns: 1fr;
-}
-
-/* Grid children default to min-width: auto, which would let the unbreakable
-   install URL stretch the track instead of scrolling inside the <pre>. */
-.install-grid > * {
-  min-width: 0;
-}
-
-.install-card {
+/* A single contained surface holds the tab strip and the active panel, instead
+   of two separate side-by-side cards duplicating the same chrome. */
+.install-tabs {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-.install-card > * {
+.install-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.install-tabs__tab {
+  flex: 1 1 50%;
   min-width: 0;
-}
-
-.install-card__os {
-  margin: 0 0 var(--space-2);
-  font-size: 1.02rem;
+  min-height: 2.75rem;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  font-size: 0.94rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: color var(--duration) ease-out, border-color var(--duration) ease-out,
+    background-color var(--duration) ease-out;
 }
 
-.install-card__note {
+.install-tabs__tab:hover {
+  color: var(--accent-strong);
+  background: var(--accent-tint);
+}
+
+/* The selected tab is marked by color, a solid underline and a lighter fill so
+   the state reads clearly even without relying on color alone. */
+.install-tabs__tab[aria-selected="true"] {
+  color: var(--accent-strong);
+  background: var(--surface);
+  border-bottom-color: var(--accent);
+}
+
+/* .install-tabs clips overflow for its rounded corners, which would cut off
+   the global :focus-visible ring's outward outline-offset along the top and
+   outer edges of the tab strip. Draw the ring inward instead so the full
+   focus indicator stays visible in both themes without changing the global
+   focus rule used everywhere else on the page. */
+.install-tabs__tab:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+  border-radius: var(--radius-sm);
+}
+
+.install-tabs__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+}
+
+.install-tabs__panel + .install-tabs__panel {
+  border-top: 1px solid var(--border);
+}
+
+/* Hidden only once JavaScript has run; the markup ships both panels visible
+   so the install commands stay readable and copyable by hand without JS. */
+.install-tabs__panel[hidden] {
+  display: none;
+}
+
+.install-tabs__panel > .code-block {
+  margin: 0;
+}
+
+.install-tabs__note {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.92rem;
 }
 
-.install-card .code-block--install {
-  margin: var(--space-4) 0 var(--space-3);
-}
-
-.install-card__target {
-  margin: auto 0 0;
+.install-tabs__target {
+  margin: 0;
   color: var(--text-muted);
   font-size: 0.88rem;
 }
@@ -870,29 +915,48 @@ code,
   margin-bottom: 0;
 }
 
-@media (min-width: 48rem) {
-  .install-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+/* A distinct but lightweight card for the optional Agent Skill install path,
+   set apart from the tabs above without competing with them for attention. */
+.agent-skill {
+  min-width: 0;
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
 
-  /* Subgrid keeps the OS label, note, command and install path on the same
-     baselines across both cards even when the notes wrap differently. Browsers
-     without subgrid keep the flex column layout, which stays readable. */
-  @supports (grid-template-rows: subgrid) {
-    .install-grid {
-      grid-template-rows: repeat(4, auto);
-      row-gap: var(--space-3);
-    }
+.agent-skill > * {
+  min-width: 0;
+}
 
-    .install-card {
-      display: grid;
-      grid-row: span 4;
-      grid-template-rows: subgrid;
-    }
+.agent-skill__heading {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
 
-    .install-card__target {
-      margin: 0;
-    }
+.agent-skill__note,
+.agent-skill__detail {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.agent-skill .code-block {
+  margin: var(--space-3) 0;
+}
+
+.agent-skill__detail:last-child {
+  margin-bottom: 0;
+}
+
+@media (min-width: 30rem) {
+  .install-tabs__tab {
+    flex: 0 0 auto;
+    min-width: 12rem;
   }
 }
 
