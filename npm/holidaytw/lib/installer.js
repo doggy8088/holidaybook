@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const config = require('./config');
 const { resolveTarget } = require('./platformMatrix');
@@ -55,9 +55,10 @@ function expectedVersionString() {
  */
 function verifyBinaryExecutes(binPath, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? config.VERIFY_TIMEOUT_MS;
-  const result = spawnSync(binPath, ['--version'], {
+  const result = spawnSync(path.resolve(binPath), ['--version'], {
     timeout: timeoutMs,
     windowsHide: true,
+    shell: false,
   });
   if (result.error) {
     throw new VerificationError(`Failed to execute ${binPath} --version: ${result.error.message}`);
