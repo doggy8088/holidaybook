@@ -1,0 +1,4 @@
+interface:
+  display_name: "Taiwan Holiday Query"
+  short_description: "Query Taiwan holiday and workday status"
+  default_prompt: "Use $query-taiwan-holiday to check whether a specific Taiwan date is a holiday or workday and return structured data."
