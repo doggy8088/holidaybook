@@ -106,8 +106,8 @@ The npm package's own `version` field (this package's semver, e.g.
 GitHub release tag it downloads. The native release tag is tracked
 separately in this package's `package.json` under
 `holidaytw.nativeVersion`. This means the npm package version can be
-bumped (including publishing a temporary prerelease such as
-temporary prerelease) without needing to change, or being constrained by,
+bumped (including a temporary prerelease such as `2.0.1-rc.0`) without
+needing to change, or being constrained by,
 the native release tag being fetched (e.g. `v2.0.1`).
 
 ## Source and releases
