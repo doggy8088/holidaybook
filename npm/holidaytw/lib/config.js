@@ -61,7 +61,6 @@ const MAX_ENTRY_BYTES = 256 * 1024 * 1024; // 256 MiB per-extracted-entry guard
 const LOCK_TIMEOUT_MS = 60_000;
 const LOCK_RETRY_MS = 150;
 
-const DOWNLOAD_TIMEOUT_MS = 60_000;
 const VERIFY_TIMEOUT_MS = 10_000;
 
 module.exports = {
@@ -77,7 +76,6 @@ module.exports = {
   MAX_ENTRY_BYTES,
   LOCK_TIMEOUT_MS,
   LOCK_RETRY_MS,
-  DOWNLOAD_TIMEOUT_MS,
   VERIFY_TIMEOUT_MS,
   validateNativeMetadata,
 };
