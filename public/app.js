@@ -300,8 +300,10 @@
     activeController = controller;
 
     /* Aborting is best-effort: AbortController may be missing, or a polyfilled
-       fetch may ignore the signal. activeDate is the authoritative guard so a
-       superseded response can never overwrite the newest one. */
+       fetch may ignore the signal. activeDate is the authoritative guard, and
+       every stage of the chain re-checks it: the headers arriving, the body
+       finishing parsing, and any failure. Body parsing is itself asynchronous,
+       so a newer query can start after the headers pass the guard. */
     function superseded() {
       return activeDate !== dateStr;
     }
@@ -322,6 +324,7 @@
         return response.json();
       })
       .then(function (data) {
+        if (superseded()) return;
         if (data === null) return;
         if (!data || typeof data !== "object" || Array.isArray(data)) {
           renderError("回應格式不正確（預期單日 JSON 物件），請稍後再試一次。");

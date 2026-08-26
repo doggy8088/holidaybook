@@ -157,17 +157,29 @@ function createHarness(
 
   const fetchCalls = [];
   const pendingFetches = [];
+  const pendingBodies = [];
   function buildResponse(date) {
+    const body = {
+      date: date.replaceAll("-", ""),
+      isHoliday: 0,
+      name: `data for ${date}`,
+      holidaycategory: "",
+      description: ""
+    };
     return {
       ok: true,
       status: 200,
-      json: () => Promise.resolve({
-        date: date.replaceAll("-", ""),
-        isHoliday: 0,
-        name: `data for ${date}`,
-        holidaycategory: "",
-        description: ""
-      })
+      json: () => {
+        if (!options.manualBody) return Promise.resolve(body);
+        /* Defers the parsed body so tests can model the window between the
+           headers arriving and response.json() settling, during which a newer
+           query can start. */
+        return new Promise((resolve) => {
+          pendingBodies.push({
+            resolve: (override) => resolve(override === undefined ? body : override)
+          });
+        });
+      }
     };
   }
   function fetch(path) {
@@ -281,6 +293,12 @@ function createHarness(
     },
     resolveFetch(index) {
       pendingFetches[index].resolve();
+    },
+    get pendingBodyCount() {
+      return pendingBodies.length;
+    },
+    resolveBody(index, ...override) {
+      pendingBodies[index].resolve(override.length > 0 ? override[0] : undefined);
     },
     get storedTheme() {
       return storedTheme;
@@ -450,6 +468,45 @@ test("a superseded failure never replaces the newest result with an error", asyn
   assert.equal(app.elements.result.getAttribute("data-state"), "success");
 
   app.rejectFetch(0, new Error("network down"));
+  await settle();
+  assert.equal(app.elements.result.getAttribute("data-state"), "success");
+  assert.equal(app.elements["result-name"].textContent, "data for 2026-08-22");
+});
+
+test("a superseded response body never overwrites the newest result", async () => {
+  const app = createHarness(undefined, { manualBody: true });
+  await settle();
+  assert.equal(app.pendingBodyCount, 1);
+
+  app.elements["date-input"].value = "2026-08-22";
+  app.elements["query-form"].dispatch("submit");
+  await settle();
+  assert.deepEqual(app.fetchCalls, ["2026-08-20.json", "2026-08-22.json"]);
+  assert.equal(app.pendingBodyCount, 2);
+
+  app.resolveBody(1);
+  await settle();
+  assert.equal(app.elements["result-name"].textContent, "data for 2026-08-22");
+
+  app.resolveBody(0);
+  await settle();
+  assert.equal(app.elements["result-name"].textContent, "data for 2026-08-22");
+  assert.equal(app.elements.result.getAttribute("data-state"), "success");
+});
+
+test("a superseded malformed body never replaces the newest result with an error", async () => {
+  const app = createHarness(undefined, { manualBody: true });
+  await settle();
+
+  app.elements["date-input"].value = "2026-08-22";
+  app.elements["query-form"].dispatch("submit");
+  await settle();
+
+  app.resolveBody(1);
+  await settle();
+  assert.equal(app.elements.result.getAttribute("data-state"), "success");
+
+  app.resolveBody(0, []);
   await settle();
   assert.equal(app.elements.result.getAttribute("data-state"), "success");
   assert.equal(app.elements["result-name"].textContent, "data for 2026-08-22");
