@@ -168,3 +168,27 @@ test('download: downloadText enforces maxBytes', async () => {
     await close();
   }
 });
+
+test('download: downloadText enforces maxBytes while streaming without content-length', async () => {
+  const response = new Response(Buffer.alloc(1000, 3));
+  const originalArrayBuffer = response.arrayBuffer.bind(response);
+  let arrayBufferCalled = false;
+  response.arrayBuffer = async () => {
+    arrayBufferCalled = true;
+    return originalArrayBuffer();
+  };
+
+  assert.equal(response.headers.get('content-length'), null);
+  await assert.rejects(
+    downloadText('https://example.test/checksums.txt', {
+      maxBytes: 10,
+      fetchImpl: async () => response,
+    }),
+    (err) => {
+      assert.ok(err instanceof DownloadError);
+      assert.match(err.message, /exceeded the maximum allowed size/);
+      return true;
+    }
+  );
+  assert.equal(arrayBufferCalled, false);
+});

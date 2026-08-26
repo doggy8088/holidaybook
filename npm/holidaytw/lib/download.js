@@ -109,18 +109,23 @@ async function downloadText(url, opts = {}) {
     fetchImpl: doFetch,
   });
 
-  let buf;
+  const chunks = [];
+  let total = 0;
   try {
-    buf = Buffer.from(await response.arrayBuffer());
+    for await (const chunk of Readable.fromWeb(response.body)) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        throw new DownloadError(
+          `Download of ${url} exceeded the maximum allowed size of ${maxBytes} bytes`
+        );
+      }
+      chunks.push(Buffer.from(chunk));
+    }
   } catch (err) {
+    if (err instanceof DownloadError) throw err;
     throw new DownloadError(`Failed while downloading ${url}: ${err.message}`);
   }
-  if (buf.length > maxBytes) {
-    throw new DownloadError(
-      `Download of ${url} exceeded the maximum allowed size of ${maxBytes} bytes`
-    );
-  }
-  return buf.toString('utf8');
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 module.exports = { downloadToFile, downloadText, DownloadError };
