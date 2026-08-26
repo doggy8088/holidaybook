@@ -55,6 +55,7 @@ function createHarness(
     "result", "error-message", "empty-message", "result-date", "result-badge",
     "result-name", "result-category", "result-description", "result-raw",
     "copy-source", "theme-toggle",
+    "install-tabs-list",
     "install-tab-posix", "install-tab-powershell",
     "install-panel-posix", "install-panel-powershell",
     "install-posix", "install-powershell", "agent-skill-install"
@@ -68,15 +69,10 @@ function createHarness(
   elements["agent-skill-install"].textContent =
     "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
 
-  /* Mirrors the real markup's initial state: the posix tab starts selected and
-     focusable, the PowerShell tab starts unselected, and both panels start
-     visible (no hidden attribute) so app.js can enforce single-panel
-     visibility on boot exactly like it would for server-rendered HTML. */
-  elements["install-tab-posix"].setAttribute("aria-selected", "true");
-  elements["install-tab-posix"].setAttribute("aria-controls", "install-panel-posix");
-  elements["install-tab-powershell"].setAttribute("aria-selected", "false");
-  elements["install-tab-powershell"].setAttribute("tabindex", "-1");
-  elements["install-tab-powershell"].setAttribute("aria-controls", "install-panel-powershell");
+  /* Mirrors the no-JavaScript fallback: tab controls start hidden and without
+     ARIA tab semantics, while both install panels remain visible. app.js owns
+     the complete enhancement into a single-panel tab interface. */
+  elements["install-tabs-list"].setAttribute("hidden", "");
 
   let activeElementId = null;
   for (const id of ids) {
@@ -692,32 +688,60 @@ test("missing matchMedia safely defaults to light mode", () => {
 /* ---- Native install tabs (macOS/Linux vs Windows PowerShell) ---- */
 
 function installTabState(app) {
+  const tabList = app.elements["install-tabs-list"];
   const posixTab = app.elements["install-tab-posix"];
   const powershellTab = app.elements["install-tab-powershell"];
   const posixPanel = app.elements["install-panel-posix"];
   const powershellPanel = app.elements["install-panel-powershell"];
   return {
+    tabList,
     posixTab,
     powershellTab,
     posixPanel,
     powershellPanel,
+    tabListRole: tabList.getAttribute("role"),
+    tabListLabelledby: tabList.getAttribute("aria-labelledby"),
+    tabListHidden: tabList.getAttribute("hidden"),
+    posixRole: posixTab.getAttribute("role"),
+    powershellRole: powershellTab.getAttribute("role"),
+    posixControls: posixTab.getAttribute("aria-controls"),
+    powershellControls: powershellTab.getAttribute("aria-controls"),
     posixSelected: posixTab.getAttribute("aria-selected"),
     powershellSelected: powershellTab.getAttribute("aria-selected"),
     posixTabindex: posixTab.getAttribute("tabindex"),
     powershellTabindex: powershellTab.getAttribute("tabindex"),
+    posixPanelRole: posixPanel.getAttribute("role"),
+    powershellPanelRole: powershellPanel.getAttribute("role"),
+    posixPanelLabelledby: posixPanel.getAttribute("aria-labelledby"),
+    powershellPanelLabelledby: powershellPanel.getAttribute("aria-labelledby"),
+    posixPanelTabindex: posixPanel.getAttribute("tabindex"),
+    powershellPanelTabindex: powershellPanel.getAttribute("tabindex"),
     posixHidden: posixPanel.getAttribute("hidden"),
     powershellHidden: powershellPanel.getAttribute("hidden")
   };
 }
 
-test("install tabs boot with macOS/Linux selected and the PowerShell panel hidden", () => {
+test("install tabs progressively enhance with complete ARIA semantics", () => {
   const app = createHarness();
   const state = installTabState(app);
 
+  assert.equal(state.tabListRole, "tablist");
+  assert.equal(state.tabListLabelledby, "install-heading");
+  assert.equal(state.tabListHidden, null);
+  assert.equal(state.posixRole, "tab");
+  assert.equal(state.powershellRole, "tab");
+  assert.equal(state.posixControls, "install-panel-posix");
+  assert.equal(state.powershellControls, "install-panel-powershell");
   assert.equal(state.posixSelected, "true");
   assert.equal(state.powershellSelected, "false");
   assert.equal(state.posixTabindex, "0");
   assert.equal(state.powershellTabindex, "-1");
+  assert.equal(state.posixPanelRole, "tabpanel");
+  assert.equal(state.powershellPanelRole, "tabpanel");
+  assert.equal(state.posixPanelLabelledby, "install-tab-posix");
+  assert.equal(state.powershellPanelLabelledby, "install-tab-powershell");
+  assert.equal(state.posixPanelTabindex, "0");
+  assert.equal(state.powershellPanelTabindex, "0");
   assert.equal(state.posixHidden, null);
   assert.equal(state.powershellHidden, "");
 });

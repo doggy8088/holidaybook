@@ -392,23 +392,28 @@
   });
 
   /* ---- Native install tabs: macOS/Linux vs Windows (PowerShell) ----
-     The markup ships with both tabpanels visible so the exact install
-     commands stay readable and copyable without JavaScript. Once this runs,
-     it enforces the single-visible-panel tab behaviour and wires up standard
-     WAI-ARIA tab keyboard handling (click, ArrowLeft/ArrowRight with
-     wraparound, Home, End). */
+     Without JavaScript, the controls are hidden and both semantically ordinary
+     install panels remain visible. Once every required element exists, this
+     applies the complete WAI-ARIA relationship, enforces one visible panel,
+     wires up keyboard handling, and only then reveals the controls. */
+  var installTabList = document.getElementById("install-tabs-list");
   var installTabs = [
     {
+      tabId: "install-tab-posix",
+      panelId: "install-panel-posix",
       tab: document.getElementById("install-tab-posix"),
       panel: document.getElementById("install-panel-posix")
     },
     {
+      tabId: "install-tab-powershell",
+      panelId: "install-panel-powershell",
       tab: document.getElementById("install-tab-powershell"),
       panel: document.getElementById("install-panel-powershell")
     }
   ];
 
   if (
+    installTabList &&
     installTabs[0].tab && installTabs[0].panel &&
     installTabs[1].tab && installTabs[1].panel
   ) {
@@ -428,7 +433,16 @@
       }
     };
 
+    installTabList.setAttribute("role", "tablist");
+    installTabList.setAttribute("aria-labelledby", "install-heading");
+
     installTabs.forEach(function (entry, index) {
+      entry.tab.setAttribute("role", "tab");
+      entry.tab.setAttribute("aria-controls", entry.panelId);
+      entry.panel.setAttribute("role", "tabpanel");
+      entry.panel.setAttribute("aria-labelledby", entry.tabId);
+      entry.panel.setAttribute("tabindex", "0");
+
       entry.tab.addEventListener("click", function () {
         activateInstallTab(index, false);
       });
@@ -457,9 +471,8 @@
       });
     });
 
-    var initialInstallIndex =
-      installTabs[1].tab.getAttribute("aria-selected") === "true" ? 1 : 0;
-    activateInstallTab(initialInstallIndex, false);
+    activateInstallTab(0, false);
+    installTabList.removeAttribute("hidden");
   }
 
   /* ---- Copy-to-clipboard for code samples and raw JSON ---- */

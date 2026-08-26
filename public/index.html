@@ -232,32 +232,22 @@
       </div>
 
       <div class="install-tabs">
-        <div class="install-tabs__list" role="tablist" aria-labelledby="install-heading">
+        <div id="install-tabs-list" class="install-tabs__list" hidden>
           <button
             type="button"
             id="install-tab-posix"
             class="install-tabs__tab"
-            role="tab"
-            aria-selected="true"
-            aria-controls="install-panel-posix"
           >macOS ／ Linux</button>
           <button
             type="button"
             id="install-tab-powershell"
             class="install-tabs__tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="install-panel-powershell"
-            tabindex="-1"
           >Windows（PowerShell）</button>
         </div>
 
         <div
           id="install-panel-posix"
           class="install-tabs__panel"
-          role="tabpanel"
-          aria-labelledby="install-tab-posix"
-          tabindex="0"
         >
           <p class="install-tabs__note">使用 <code>install.sh</code>，自動判斷作業系統（macOS／Linux）與架構（amd64／arm64）。</p>
           <div class="code-block">
@@ -270,11 +260,8 @@
         <div
           id="install-panel-powershell"
           class="install-tabs__panel"
-          role="tabpanel"
-          aria-labelledby="install-tab-powershell"
-          tabindex="0"
         >
-          <p class="install-tabs__note">使用 <code>install.ps1</code>，自動判斷架構（amd64／arm64）。</p>
+          <p class="install-tabs__note">在 Windows PowerShell 使用 <code>install.ps1</code>，自動判斷架構（amd64／arm64）。</p>
           <div class="code-block">
             <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-powershell">複製</button>
             <pre tabindex="0"><code id="install-powershell">irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex</code></pre>
@@ -288,7 +275,7 @@
         <p>要指定版本、改安裝目錄，或想自己下載壓縮檔與 <code>checksums.txt</code> 手動安裝，請參考 <a href="https://github.com/doggy8088/holidaybook/releases" target="_blank" rel="noopener">GitHub Releases</a>；CLI 目前僅透過 Releases 發布，不提供 Homebrew、apt 或 winget 等套件管理員安裝方式。</p>
       </div>
 
-      <div class="agent-skill" id="agent-skill" aria-labelledby="agent-skill-heading">
+      <div class="agent-skill" id="agent-skill" role="region" aria-labelledby="agent-skill-heading">
         <h3 id="agent-skill-heading" class="agent-skill__heading">或讓 AI 代理人透過 Agent Skill 自動安裝</h3>
         <p class="agent-skill__note">支援 Agent Skills 的工具可以直接讀取這個指令。<code>skills</code> 會偵測目前環境支援哪些代理人，並讓你選擇要安裝到「這個專案」還是「全域」共用。指令直接指向本儲存庫根目錄的 <code>skill/SKILL.md</code>，可避免跟 <code>.github/skills</code> 底下既有的技能定義互相混淆。</p>
         <div class="code-block">

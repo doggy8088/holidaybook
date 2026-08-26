@@ -262,40 +262,50 @@ check(
   'The site navigation must link to #install with the label "安裝".',
 );
 
-/* The install section must be a real WAI-ARIA tab interface with exactly two
-   tabs (macOS/Linux and Windows PowerShell). Attributes are checked with
-   independent lookaheads via hasAttributes()/regexes below so reordering them
-   in the markup -- semantically identical HTML -- can never cause a false
-   failure. */
-check(
-  hasAttributes("div", [
-    String.raw`class=["'][^"']*\binstall-tabs__list\b[^"']*["']`,
-    String.raw`role=["']tablist["']`,
-    String.raw`aria-labelledby=["']install-heading["']`,
-  ]).test(installSection),
-  'The install section must contain a tablist (role="tablist") labelled by install-heading.',
+/* The server-rendered HTML is the no-JavaScript fallback: both install
+   sections remain visible and the inert tab controls stay hidden without
+   claiming ARIA tab semantics. app.js applies the complete tablist/tab/
+   tabpanel relationship before revealing the controls; its behavior is
+   covered by tests/public-app.test.mjs. */
+const installTabListMatch = installSection.match(
+  /<div\b(?=[^>]*\bid=["']install-tabs-list["'])([^>]*)>/i,
 );
+check(Boolean(installTabListMatch), 'The install section must contain id="install-tabs-list".');
+if (installTabListMatch) {
+  const attrs = installTabListMatch[1];
+  check(
+    /\bclass=["'][^"']*\binstall-tabs__list\b[^"']*["']/i.test(attrs),
+    "#install-tabs-list must use the .install-tabs__list class.",
+  );
+  check(
+    /\bhidden(?:\s*=\s*(?:["'][^"']*["']|[^\s]+))?(?:\s|$)/i.test(attrs),
+    "#install-tabs-list must stay hidden until JavaScript applies tab semantics.",
+  );
+  check(
+    !/\brole\s*=|\baria-labelledby\s*=/i.test(attrs),
+    "#install-tabs-list must not claim tablist semantics before JavaScript enhancement.",
+  );
+}
 
 const INSTALL_TABS = [
-  { tabId: "install-tab-posix", panelId: "install-panel-posix", label: /macOS/i, selected: "true" },
-  { tabId: "install-tab-powershell", panelId: "install-panel-powershell", label: /PowerShell/i, selected: "false" },
+  { tabId: "install-tab-posix", panelId: "install-panel-posix", label: /macOS/i },
+  { tabId: "install-tab-powershell", panelId: "install-panel-powershell", label: /PowerShell/i },
 ];
 
-for (const { tabId, panelId, label, selected } of INSTALL_TABS) {
+for (const { tabId, panelId, label } of INSTALL_TABS) {
   const tabMatch = installSection.match(
     new RegExp(`<button\\b([^>]*\\bid=["']${tabId}["'][^>]*)>([\\s\\S]*?)</button>`, "i"),
   );
   check(Boolean(tabMatch), `The install section must contain a tab button id="${tabId}".`);
   if (tabMatch) {
     const [, attrs, text] = tabMatch;
-    check(/\brole=["']tab["']/i.test(attrs), `#${tabId} must have role="tab".`);
     check(
-      new RegExp(`\\baria-controls=["']${panelId}["']`, "i").test(attrs),
-      `#${tabId} must set aria-controls="${panelId}".`,
+      /\btype=["']button["']/i.test(attrs),
+      `#${tabId} must remain a non-submitting button.`,
     );
     check(
-      new RegExp(`\\baria-selected=["']${selected}["']`, "i").test(attrs),
-      `#${tabId} must start with aria-selected="${selected}".`,
+      !/\brole\s*=|\baria-controls\s*=|\baria-selected\s*=|\btabindex\s*=/i.test(attrs),
+      `#${tabId} must not claim tab semantics before JavaScript enhancement.`,
     );
     check(label.test(decodeEntities(text)), `The #${tabId} label must mention ${label}.`);
   }
@@ -303,13 +313,12 @@ for (const { tabId, panelId, label, selected } of INSTALL_TABS) {
   const panelMatch = installSection.match(
     new RegExp(`<div\\b([^>]*\\bid=["']${panelId}["'][^>]*)>`, "i"),
   );
-  check(Boolean(panelMatch), `The install section must contain a tabpanel id="${panelId}".`);
+  check(Boolean(panelMatch), `The install section must contain an install panel id="${panelId}".`);
   if (panelMatch) {
     const attrs = panelMatch[1];
-    check(/\brole=["']tabpanel["']/i.test(attrs), `#${panelId} must have role="tabpanel".`);
     check(
-      new RegExp(`\\baria-labelledby=["']${tabId}["']`, "i").test(attrs),
-      `#${panelId} must set aria-labelledby="${tabId}".`,
+      !/\brole\s*=|\baria-labelledby\s*=|\btabindex\s*=|\bhidden(?:\s|=|$)/i.test(attrs),
+      `#${panelId} must remain visible and semantically ordinary before JavaScript enhancement.`,
     );
   }
 }
@@ -425,9 +434,10 @@ check(
 check(
   hasAttributes("div", [
     String.raw`id=["']agent-skill["']`,
+    String.raw`role=["']region["']`,
     String.raw`aria-labelledby=["']agent-skill-heading["']`,
   ]).test(installSection),
-  'The Agent Skill subsection must be a landmark labelled by agent-skill-heading.',
+  'The Agent Skill subsection must be a region landmark labelled by agent-skill-heading.',
 );
 check(
   /<h3\b[^>]*\bid=["']agent-skill-heading["'][^>]*>/i.test(agentSkillBlock),
