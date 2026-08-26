@@ -117,7 +117,7 @@ func TestRunHTTPAndMalformedErrors(t *testing.T) {
 func TestRunVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{"--version"}, &stdout, &stderr, "1.2.3")
-	if exitCode != ExitOK || stdout.String() != "holidaybook 1.2.3\n" || stderr.Len() != 0 {
+	if exitCode != ExitOK || stdout.String() != "holidaytw 1.2.3\n" || stderr.Len() != 0 {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exitCode, stdout.String(), stderr.String())
 	}
 }
@@ -129,7 +129,7 @@ func TestRunHelpFlags(t *testing.T) {
 		if exitCode != ExitOK {
 			t.Fatalf("Run(%v) exit = %d, stderr = %s", args, exitCode, stderr.String())
 		}
-		if !strings.Contains(stdout.String(), "用法：holidaybook") || stderr.Len() != 0 {
+		if !strings.Contains(stdout.String(), "用法：holidaytw") || stderr.Len() != 0 {
 			t.Fatalf("Run(%v) stdout = %q stderr = %q", args, stdout.String(), stderr.String())
 		}
 		if !strings.Contains(stdout.String(), "-h") {

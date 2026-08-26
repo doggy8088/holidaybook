@@ -3,19 +3,21 @@ param(
     [Parameter()]
     [string] $Version = "latest",
 
+    # Left empty by default so environment-variable precedence (see below)
+    # can be resolved after parameter binding.
     [Parameter()]
-    [string] $InstallDir = (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Programs\holidaybook")
+    [string] $InstallDir
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $repository = "doggy8088/holidaybook"
-$program = "holidaybook"
+$program = "holidaytw"
 
 function Stop-Installer {
     param([string] $Message)
-    throw "holidaybook installer: $Message"
+    throw "holidaytw installer: $Message"
 }
 
 function Test-WindowsHost {
@@ -55,6 +57,21 @@ if (-not (Test-WindowsHost)) {
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     Stop-Installer "Version cannot be empty"
+}
+
+# InstallDir precedence (highest wins): -InstallDir parameter >
+# HOLIDAYTW_INSTALL_DIR > HOLIDAYBOOK_INSTALL_DIR (deprecated migration
+# alias for pre-v2.0.0 installs) > the default Programs\holidaytw path.
+if ([string]::IsNullOrWhiteSpace($InstallDir)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:HOLIDAYTW_INSTALL_DIR)) {
+        $InstallDir = $env:HOLIDAYTW_INSTALL_DIR
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:HOLIDAYBOOK_INSTALL_DIR)) {
+        $InstallDir = $env:HOLIDAYBOOK_INSTALL_DIR
+    }
+    else {
+        $InstallDir = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Programs\holidaytw"
+    }
 }
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     Stop-Installer "InstallDir cannot be empty"
