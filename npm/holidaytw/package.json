@@ -1,0 +1,57 @@
+{
+  "name": "holidaytw",
+  "version": "2.0.0",
+  "description": "npm launcher for the holidaytw Taiwan holiday CLI: downloads the matching native holidaytw binary from GitHub Releases and runs it.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "bin": {
+    "holidaytw": "bin/holidaytw.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "scripts",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "test": "node --test test/*.test.js",
+    "pack:check": "node scripts/verify-pack.js"
+  },
+  "holidaytw": {
+    "nativeVersion": "2.0.0",
+    "nativeRepository": "doggy8088/holidaybook",
+    "comment": "nativeVersion is the native holidaytw GitHub release tag (without the leading 'v') used for downloads. It is intentionally decoupled from the top-level npm 'version' field above so a temporary npm prerelease (e.g. 2.0.0-bootstrap.0) can still resolve and download native release v2.0.0."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doggy8088/holidaybook.git",
+    "directory": "npm/holidaytw"
+  },
+  "homepage": "https://github.com/doggy8088/holidaybook",
+  "bugs": {
+    "url": "https://github.com/doggy8088/holidaybook/issues"
+  },
+  "keywords": [
+    "taiwan",
+    "holiday",
+    "calendar",
+    "cli",
+    "holidaytw"
+  ],
+  "author": "doggy8088",
+  "publishConfig": {
+    "access": "public"
+  }
+}
