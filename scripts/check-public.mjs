@@ -69,6 +69,18 @@ function hasThemeVariables(body) {
     new RegExp(`${property}\\s*:`, "i").test(body));
 }
 
+/* Install one-liners contain characters that must be escaped in HTML, so the
+   markup is compared against the real command rather than its entity form. */
+function decodeEntities(source) {
+  return source
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&amp;", "&");
+}
+
 const cname = readRequired("GitHub Pages CNAME", paths.cname);
 const html = readRequired("Page HTML", paths.html);
 const css = readRequired("Page stylesheet", paths.css);
@@ -152,14 +164,84 @@ check(
 
 const codeBlockCount = [...html.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bcode-block\b[^"']*["'][^>]*>/gi)].length;
 const codePreMatches = [...html.matchAll(/<pre\b([^>]*)>\s*<code\b/gi)];
-check(codeBlockCount === 5, `Expected 5 .code-block elements, found ${codeBlockCount}.`);
-check(codePreMatches.length === 5, `Expected 5 code-block <pre> elements, found ${codePreMatches.length}.`);
+check(codeBlockCount === 7, `Expected 7 .code-block elements, found ${codeBlockCount}.`);
+check(codePreMatches.length === 7, `Expected 7 code-block <pre> elements, found ${codePreMatches.length}.`);
 codePreMatches.forEach((match, index) => {
   check(
     /\btabindex=["']0["']/i.test(match[1]),
     `Code-block <pre> ${index + 1} must include tabindex="0".`,
   );
 });
+
+/* The one-command install section is the primary conversion path for the CLI,
+   so its anchor, exact commands and copy wiring are pinned here rather than
+   left to a visual review. */
+check(
+  /<section\b[^>]*\bid=["']install["'][^>]*\baria-labelledby=["']install-heading["'][^>]*>/i.test(html),
+  'The page must contain <section id="install"> labelled by install-heading.',
+);
+check(
+  /<h2\b[^>]*\bid=["']install-heading["'][^>]*>/i.test(html),
+  'The install section must have an <h2 id="install-heading">.',
+);
+check(
+  /<nav\b[^>]*\bclass=["'][^"']*\bsite-nav\b[^"']*["'][^>]*>[\s\S]*?<a\b[^>]*\bhref=["']#install["'][^>]*>\s*安裝\s*<\/a>[\s\S]*?<\/nav>/i.test(html),
+  'The site navigation must link to #install with the label "安裝".',
+);
+
+const INSTALL_COMMANDS = [
+  {
+    id: "install-posix",
+    label: "macOS / Linux",
+    command: "curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh",
+  },
+  {
+    id: "install-powershell",
+    label: "Windows PowerShell",
+    command: "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex",
+  },
+];
+
+for (const { id, label, command } of INSTALL_COMMANDS) {
+  const codeMatch = html.match(new RegExp(`<code\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</code>`, "i"));
+  check(Boolean(codeMatch), `The install section must contain <code id="${id}"> for ${label}.`);
+  if (codeMatch) {
+    check(
+      decodeEntities(codeMatch[1]).trim() === command,
+      `The ${label} install command must be exactly "${command}".`,
+    );
+  }
+
+  check(
+    new RegExp(`<button\\b[^>]*\\bdata-copy-target=["']${id}["'][^>]*>`, "i").test(html),
+    `The ${label} install command needs a copy button with data-copy-target="${id}".`,
+  );
+  const copyButton = html.match(new RegExp(`<button\\b([^>]*\\bdata-copy-target=["']${id}["'][^>]*)>`, "i"));
+  if (copyButton) {
+    check(
+      /\bclass=["'][^"']*\bcode-block__copy\b[^"']*["']/i.test(copyButton[1]),
+      `The ${label} copy button must reuse the .code-block__copy behaviour.`,
+    );
+  }
+
+  const preMatch = html.match(new RegExp(`<pre\\b([^>]*)>\\s*<code\\b[^>]*\\bid=["']${id}["']`, "i"));
+  check(Boolean(preMatch), `The ${label} command must live inside a <pre> element.`);
+  if (preMatch) {
+    check(
+      /\btabindex=["']0["']/i.test(preMatch[1]),
+      `The ${label} command block must be keyboard focusable with tabindex="0".`,
+    );
+  }
+}
+
+check(
+  /<a\b[^>]*\bhref=["']https:\/\/github\.com\/doggy8088\/holidaybook\/releases["'][^>]*>/i.test(html),
+  "The install section must link to https://github.com/doggy8088/holidaybook/releases for versioned or manual installs.",
+);
+check(
+  /SHA-256/i.test(html) && /checksums\.txt/i.test(html),
+  "The install section must state that the installer verifies the release SHA-256 against checksums.txt.",
+);
 
 const images = [...html.matchAll(/<img\b([^>]*)>/gi)].map((match) => match[1]);
 const attr = (source, name) => {
@@ -308,6 +390,17 @@ check(
   hasDeclaration(navLinkBody, "display", "inline-flex")
     && hasDeclaration(navLinkBody, "min-height", String.raw`2\.75rem`),
   "The scoped site navigation links must use inline-flex with min-height: 2.75rem.",
+);
+
+const copyButtonBody = ruleBody(responsiveMedia, String.raw`\.code-block__copy`);
+check(
+  hasDeclaration(copyButtonBody, "min-height", String.raw`2\.75rem`)
+    && hasDeclaration(
+      copyButtonBody,
+      "padding-block",
+      String.raw`(?:0?\.5rem|var\(\s*--space-2\s*\))`,
+    ),
+  "The scoped code-block copy buttons must set min-height: 2.75rem and 0.5rem block padding.",
 );
 
 if (errors.length > 0) {

@@ -88,6 +88,7 @@
       <ul>
         <li><a href="#lookup">查詢</a></li>
         <li><a href="#data">資料</a></li>
+        <li><a href="#install">安裝</a></li>
         <li><a href="#cli">CLI</a></li>
         <li><a href="#api">API</a></li>
         <li><a href="https://github.com/doggy8088/holidaybook">GitHub</a></li>
@@ -218,6 +219,43 @@
           <dt>取用條件</dt>
           <dd>純靜態 JSON 檔案，免註冊、免金鑰，網址可直接分享。</dd>
         </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--install" id="install" aria-labelledby="install-heading">
+    <div class="container">
+      <div class="section__header">
+        <p class="section__kicker">安裝 CLI</p>
+        <h2 id="install-heading">一行指令安裝</h2>
+        <p class="section__lede">複製下面對應你系統的那一行貼進終端機就可以了。隨附的安裝腳本會自動判斷平台與 CPU 架構、從 GitHub Releases 取得對應的執行檔，並比對官方的 <code>checksums.txt</code> 驗證 SHA-256；雜湊不符就會中止安裝。</p>
+      </div>
+
+      <div class="install-grid">
+        <article class="install-card">
+          <h3 class="install-card__os" id="install-posix-label">macOS ／ Linux</h3>
+          <p class="install-card__note">使用 <code>install.sh</code>，自動判斷作業系統（macOS／Linux）與架構（amd64／arm64）。</p>
+          <div class="code-block code-block--install">
+            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-posix">複製</button>
+            <pre tabindex="0" role="group" aria-labelledby="install-posix-label"><code id="install-posix">curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh</code></pre>
+          </div>
+          <p class="install-card__target">預設安裝到 <code>~/.local/bin</code>。</p>
+        </article>
+
+        <article class="install-card">
+          <h3 class="install-card__os" id="install-powershell-label">Windows（PowerShell）</h3>
+          <p class="install-card__note">使用 <code>install.ps1</code>，自動判斷架構（amd64／arm64）。</p>
+          <div class="code-block code-block--install">
+            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="install-powershell">複製</button>
+            <pre tabindex="0" role="group" aria-labelledby="install-powershell-label"><code id="install-powershell">irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex</code></pre>
+          </div>
+          <p class="install-card__target">預設安裝到 <code>%LOCALAPPDATA%\Programs\holidaybook</code>。</p>
+        </article>
+      </div>
+
+      <div class="install-footnote">
+        <p>不帶參數執行時安裝的是 <strong>latest release</strong>（目前為 <code>v1.0.0</code>）。腳本不會自動修改 <code>PATH</code>；安裝目錄若不在 <code>PATH</code> 中，腳本會在結束時提示你加入。</p>
+        <p>要指定版本、改安裝目錄，或想自己下載壓縮檔與 <code>checksums.txt</code> 手動安裝，請參考 <a href="https://github.com/doggy8088/holidaybook/releases" target="_blank" rel="noopener">GitHub Releases</a>；CLI 目前僅透過 Releases 發布，不提供 Homebrew、apt 或 winget 等套件管理員安裝方式。</p>
       </div>
     </div>
   </section>
