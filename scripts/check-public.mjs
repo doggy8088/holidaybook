@@ -69,6 +69,69 @@ function hasThemeVariables(body) {
     new RegExp(`${property}\\s*:`, "i").test(body));
 }
 
+/* Returns the inner markup of the first matching element, tracking nesting of
+   the same tag so a scoped assertion cannot silently read past the element. */
+function elementBlock(source, tag, attributePattern) {
+  const opening = new RegExp(`<${tag}\\b(?=[^>]*\\b${attributePattern})[^>]*>`, "i");
+  const found = source.match(opening);
+  if (!found) return "";
+
+  const start = found.index + found[0].length;
+  const boundaries = new RegExp(`<${tag}\\b[^>]*>|</${tag}\\s*>`, "gi");
+  boundaries.lastIndex = start;
+  let depth = 1;
+  let match;
+
+  while ((match = boundaries.exec(source)) !== null) {
+    depth += match[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return source.slice(start, match.index);
+  }
+
+  return "";
+}
+
+/* Install one-liners contain characters that must be escaped in HTML, so the
+   markup is compared against the real command rather than its entity form.
+
+   This is a true single pass: every reference is consumed by one regex match
+   and the replacement output is never rescanned. That ordering matters, because
+   chained replacements would mis-handle an escaped ampersand followed by an
+   entity name -- "&#38;amp;" is the HTML source for the literal text "&amp;",
+   not for "&". For the same reason "&amp;lt;" must decode to the literal text
+   "&lt;" and never to "<"; decoding it twice is the classic double-decode bug. */
+const NAMED_ENTITIES = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: "\u00a0",
+  quot: '"',
+};
+
+const MAX_CODE_POINT = 0x10ffff;
+
+/* Only Unicode scalar values can be materialised: String.fromCodePoint throws a
+   RangeError above U+10FFFF, and lone surrogates would produce unusable text.
+   Anything else is left as written so a malformed reference surfaces as a normal
+   contract failure instead of crashing the whole check. */
+function fromCodePoint(value, original) {
+  if (!Number.isInteger(value) || value < 0 || value > MAX_CODE_POINT) return original;
+  if (value >= 0xd800 && value <= 0xdfff) return original;
+  return String.fromCodePoint(value);
+}
+
+function decodeEntities(source) {
+  return source.replace(
+    /&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z][a-zA-Z0-9]*));/g,
+    (match, decimal, hex, name) => {
+      if (decimal !== undefined) return fromCodePoint(Number(decimal), match);
+      if (hex !== undefined) return fromCodePoint(parseInt(hex, 16), match);
+      const decoded = NAMED_ENTITIES[name.toLowerCase()];
+      return decoded === undefined ? match : decoded;
+    },
+  );
+}
+
 const cname = readRequired("GitHub Pages CNAME", paths.cname);
 const html = readRequired("Page HTML", paths.html);
 const css = readRequired("Page stylesheet", paths.css);
@@ -145,21 +208,113 @@ if (themeBootstrap) {
   );
 }
 
+/* Attributes are matched with independent lookaheads so that reordering them --
+   which is semantically identical HTML -- cannot cause a false failure, while
+   every required attribute is still mandatory. */
+function hasAttributes(tag, attributes) {
+  const lookaheads = attributes.map((attribute) => `(?=[^>]*\\b${attribute})`).join("");
+  return new RegExp(`<${tag}\\b${lookaheads}[^>]*>`, "i");
+}
+
 check(
-  /<div\b[^>]*\bclass=["'][^"']*\bquick-dates\b[^"']*["'][^>]*\brole=["']group["'][^>]*>/i.test(html),
+  hasAttributes("div", [
+    String.raw`class=["'][^"']*\bquick-dates\b[^"']*["']`,
+    String.raw`role=["']group["']`,
+  ]).test(html),
   'The .quick-dates container must include role="group".',
 );
 
 const codeBlockCount = [...html.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bcode-block\b[^"']*["'][^>]*>/gi)].length;
 const codePreMatches = [...html.matchAll(/<pre\b([^>]*)>\s*<code\b/gi)];
-check(codeBlockCount === 5, `Expected 5 .code-block elements, found ${codeBlockCount}.`);
-check(codePreMatches.length === 5, `Expected 5 code-block <pre> elements, found ${codePreMatches.length}.`);
+check(codeBlockCount === 7, `Expected 7 .code-block elements, found ${codeBlockCount}.`);
+check(codePreMatches.length === 7, `Expected 7 code-block <pre> elements, found ${codePreMatches.length}.`);
 codePreMatches.forEach((match, index) => {
   check(
     /\btabindex=["']0["']/i.test(match[1]),
     `Code-block <pre> ${index + 1} must include tabindex="0".`,
   );
 });
+
+/* The one-command install section is the primary conversion path for the CLI,
+   so its anchor, exact commands and copy wiring are pinned here rather than
+   left to a visual review. Everything the messages describe as belonging to the
+   install section is matched against that section only: the same link or wording
+   appearing elsewhere on the page must never mask a regression inside it. */
+check(
+  hasAttributes("section", [
+    String.raw`id=["']install["']`,
+    String.raw`aria-labelledby=["']install-heading["']`,
+  ]).test(html),
+  'The page must contain <section id="install"> labelled by install-heading.',
+);
+
+const installSection = elementBlock(html, "section", String.raw`id=["']install["']`);
+check(
+  installSection.length > 0,
+  'Could not read the contents of <section id="install">; is the closing tag missing?',
+);
+check(
+  /<h2\b[^>]*\bid=["']install-heading["'][^>]*>/i.test(installSection),
+  'The install section must have an <h2 id="install-heading">.',
+);
+check(
+  /<nav\b[^>]*\bclass=["'][^"']*\bsite-nav\b[^"']*["'][^>]*>[\s\S]*?<a\b[^>]*\bhref=["']#install["'][^>]*>\s*安裝\s*<\/a>[\s\S]*?<\/nav>/i.test(html),
+  'The site navigation must link to #install with the label "安裝".',
+);
+
+const INSTALL_COMMANDS = [
+  {
+    id: "install-posix",
+    label: "macOS / Linux",
+    command: "curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh",
+  },
+  {
+    id: "install-powershell",
+    label: "Windows PowerShell",
+    command: "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex",
+  },
+];
+
+for (const { id, label, command } of INSTALL_COMMANDS) {
+  const codeMatch = installSection.match(new RegExp(`<code\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</code>`, "i"));
+  check(Boolean(codeMatch), `The install section must contain <code id="${id}"> for ${label}.`);
+  if (codeMatch) {
+    check(
+      decodeEntities(codeMatch[1]).trim() === command,
+      `The ${label} install command must be exactly "${command}".`,
+    );
+  }
+
+  const copyButton = installSection.match(new RegExp(`<button\\b([^>]*\\bdata-copy-target=["']${id}["'][^>]*)>`, "i"));
+  check(
+    Boolean(copyButton),
+    `The ${label} install command needs a copy button with data-copy-target="${id}".`,
+  );
+  if (copyButton) {
+    check(
+      /\bclass=["'][^"']*\bcode-block__copy\b[^"']*["']/i.test(copyButton[1]),
+      `The ${label} copy button must reuse the .code-block__copy behaviour.`,
+    );
+  }
+
+  const preMatch = installSection.match(new RegExp(`<pre\\b([^>]*)>\\s*<code\\b[^>]*\\bid=["']${id}["']`, "i"));
+  check(Boolean(preMatch), `The ${label} command must live inside a <pre> element.`);
+  if (preMatch) {
+    check(
+      /\btabindex=["']0["']/i.test(preMatch[1]),
+      `The ${label} command block must be keyboard focusable with tabindex="0".`,
+    );
+  }
+}
+
+check(
+  /<a\b[^>]*\bhref=["']https:\/\/github\.com\/doggy8088\/holidaybook\/releases["'][^>]*>/i.test(installSection),
+  "The install section must link to https://github.com/doggy8088/holidaybook/releases for versioned or manual installs.",
+);
+check(
+  /SHA-256/i.test(installSection) && /checksums\.txt/i.test(installSection),
+  "The install section must state that the installer verifies the release SHA-256 against checksums.txt.",
+);
 
 const images = [...html.matchAll(/<img\b([^>]*)>/gi)].map((match) => match[1]);
 const attr = (source, name) => {
@@ -308,6 +463,17 @@ check(
   hasDeclaration(navLinkBody, "display", "inline-flex")
     && hasDeclaration(navLinkBody, "min-height", String.raw`2\.75rem`),
   "The scoped site navigation links must use inline-flex with min-height: 2.75rem.",
+);
+
+const copyButtonBody = ruleBody(responsiveMedia, String.raw`\.code-block__copy`);
+check(
+  hasDeclaration(copyButtonBody, "min-height", String.raw`2\.75rem`)
+    && hasDeclaration(
+      copyButtonBody,
+      "padding-block",
+      String.raw`(?:0?\.5rem|var\(\s*--space-2\s*\))`,
+    ),
+  "The scoped code-block copy buttons must set min-height: 2.75rem and 0.5rem block padding.",
 );
 
 if (errors.length > 0) {
