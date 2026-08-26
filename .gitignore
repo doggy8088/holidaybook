@@ -271,3 +271,8 @@ StaticGenerator/test-data.json
 # Test coverage reports
 StaticGenerator.Tests/TestResults/
 StaticGenerator.Tests/coverage/
+
+# Go CLI build output
+/dist/
+/holidaybook
+/holidaybook.exe
