@@ -7,37 +7,35 @@ name: Generate Holiday Data
 on:
   schedule:
     # Run daily at 2 AM UTC (10 AM Taiwan time)
-    - cron: '0 2 * * *'
-  workflow_dispatch: # Allow manual trigger
+    - cron: "0 2 * * *"
+  workflow_dispatch:
   push:
-    branches: [ master ]
-    paths: 
-      - 'StaticGenerator/**'
-      - '.github/workflows/generate-data.yml'
+    branches:
+      - master
+    paths:
+      - "StaticGenerator/**"
+      - ".github/workflows/generate-data.yml"
 
-# Grant GITHUB_TOKEN the permissions required to push to the repository
 permissions:
   contents: write
 
 jobs:
   generate-data:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
-          # Use PAT to trigger other workflows when pushing changes
-          # Falls back to GITHUB_TOKEN if PAT is not available
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          # Use PAT to trigger the Pages workflow, falling back to GITHUB_TOKEN.
+          token: ${{ secrets.PAT || github.token }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
       - name: Cache .NET dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
@@ -66,48 +64,59 @@ jobs:
         run: |
           cd StaticGenerator
           dotnet run --configuration Release
-          echo "generation_successful=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Commit and push changes
-        if: steps.generate.outputs.generation_successful == 'true'
+        if: steps.generate.outcome == 'success'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add docs/
-          
-          # Check if there are changes to commit
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Auto-update holiday data - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-            # Push with PAT to trigger deploy-pages.yml workflow
             git push
           fi
 
       - name: Send error notification
-        if: steps.generate.outputs.generation_successful != 'true'
+        if: always() && steps.generate.outcome == 'failure'
+        env:
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
         run: |
-          if [ -n "${{ secrets.SENDGRID_API_KEY }}" ] && [ -n "${{ secrets.NOTIFICATION_EMAIL }}" ]; then
-            curl -X "POST" "https://api.sendgrid.com/v3/mail/send" \
-              -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
+          if [ -n "${SENDGRID_API_KEY}" ] && [ -n "${NOTIFICATION_EMAIL}" ]; then
+            timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            from_email="${FROM_EMAIL:-noreply@github.com}"
+            curl --fail-with-body --request POST "https://api.sendgrid.com/v3/mail/send" \
+              -H "Authorization: Bearer ${SENDGRID_API_KEY}" \
               -H "Content-Type: application/json" \
-              -d '{
-                "personalizations": [
-                  {
-                    "to": [{"email": "${{ secrets.NOTIFICATION_EMAIL }}"}],
-                    "subject": "❌ Holiday Data Generation Failed"
-                  }
-                ],
-                "from": {"email": "${{ secrets.FROM_EMAIL || 'noreply@github.com' }}"},
-                "content": [
-                  {
-                    "type": "text/html",
-                    "value": "<h2>❌ Holiday Data Generation Failed</h2><p><strong>Repository:</strong> ${{ github.repository }}</p><p><strong>Workflow:</strong> ${{ github.workflow }}</p><p><strong>Run ID:</strong> ${{ github.run_id }}</p><p><strong>Time:</strong> $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")</p><p><strong>Details:</strong> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View workflow run</a></p>"
-                  }
-                ]
-              }'
+              --data @- <<EOF
+          {
+            "personalizations": [
+              {
+                "to": [{"email": "${NOTIFICATION_EMAIL}"}],
+                "subject": "❌ Holiday Data Generation Failed"
+              }
+            ],
+            "from": {"email": "${from_email}"},
+            "content": [
+              {
+                "type": "text/html",
+                "value": "<h2>❌ Holiday Data Generation Failed</h2><p><strong>Repository:</strong> ${{ github.repository }}</p><p><strong>Workflow:</strong> ${{ github.workflow }}</p><p><strong>Run ID:</strong> ${{ github.run_id }}</p><p><strong>Time:</strong> ${timestamp}</p><p><strong>Details:</strong> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View workflow run</a></p>"
+              }
+            ]
+          }
+          EOF
             echo "Error notification email sent"
           else
             echo "SendGrid API key or notification email not configured, skipping email notification"
           fi
+
+      - name: Fail workflow after generation failure
+        if: always() && steps.generate.outcome == 'failure'
+        run: |
+          echo "Holiday data generation failed; see the Generate holiday data step for details." >&2
+          exit 1
