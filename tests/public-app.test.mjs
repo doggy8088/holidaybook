@@ -58,7 +58,7 @@ function createHarness(
     "install-tabs-list",
     "install-tab-posix", "install-tab-powershell",
     "install-panel-posix", "install-panel-powershell",
-    "install-posix", "install-powershell", "agent-skill-install"
+    "install-posix", "install-powershell", "npm-install", "agent-skill-install"
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, new Element()]));
   elements["copy-source"].textContent = "copy me";
@@ -66,6 +66,7 @@ function createHarness(
     "curl -fsSL https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.sh | sh";
   elements["install-powershell"].textContent =
     "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex";
+  elements["npm-install"].textContent = "npm install -g holidaytw";
   elements["agent-skill-install"].textContent =
     "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
 
@@ -92,12 +93,15 @@ function createHarness(
   installPosixCopyButton.setAttribute("data-copy-target", "install-posix");
   const installPowershellCopyButton = new Element("複製");
   installPowershellCopyButton.setAttribute("data-copy-target", "install-powershell");
+  const npmInstallCopyButton = new Element("複製");
+  npmInstallCopyButton.setAttribute("data-copy-target", "npm-install");
   const agentSkillCopyButton = new Element("複製");
   agentSkillCopyButton.setAttribute("data-copy-target", "agent-skill-install");
   const copyButtons = [
     copyButton,
     installPosixCopyButton,
     installPowershellCopyButton,
+    npmInstallCopyButton,
     agentSkillCopyButton
   ];
 
@@ -306,6 +310,7 @@ function createHarness(
     copyButton,
     installPosixCopyButton,
     installPowershellCopyButton,
+    npmInstallCopyButton,
     agentSkillCopyButton,
     clipboardWrites,
     elements,
@@ -846,6 +851,17 @@ test("install tab copy buttons copy the exact one-command installers", async () 
   assert.equal(
     app.clipboardWrites[app.clipboardWrites.length - 1],
     "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex"
+  );
+});
+
+test("the npm copy button copies the exact global install command", async () => {
+  const app = createHarness();
+
+  app.npmInstallCopyButton.dispatch("click");
+  await settle();
+  assert.equal(
+    app.clipboardWrites[app.clipboardWrites.length - 1],
+    "npm install -g holidaytw"
   );
 });
 

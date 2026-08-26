@@ -226,8 +226,8 @@ check(
 
 const codeBlockCount = [...html.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bcode-block\b[^"']*["'][^>]*>/gi)].length;
 const codePreMatches = [...html.matchAll(/<pre\b([^>]*)>\s*<code\b/gi)];
-check(codeBlockCount === 8, `Expected 8 .code-block elements, found ${codeBlockCount}.`);
-check(codePreMatches.length === 8, `Expected 8 code-block <pre> elements, found ${codePreMatches.length}.`);
+check(codeBlockCount === 9, `Expected 9 .code-block elements, found ${codeBlockCount}.`);
+check(codePreMatches.length === 9, `Expected 9 code-block <pre> elements, found ${codePreMatches.length}.`);
 codePreMatches.forEach((match, index) => {
   check(
     /\btabindex=["']0["']/i.test(match[1]),
@@ -368,6 +368,61 @@ for (const { id, label, command } of INSTALL_COMMANDS) {
   }
 }
 
+const npmInstallBlock = elementBlock(installSection, "div", String.raw`id=["']npm-install-card["']`);
+check(
+  npmInstallBlock.length > 0,
+  'Could not read the npm install subsection (<div id="npm-install-card">) inside the install section.',
+);
+check(
+  hasAttributes("div", [
+    String.raw`id=["']npm-install-card["']`,
+    String.raw`role=["']region["']`,
+    String.raw`aria-labelledby=["']npm-install-heading["']`,
+  ]).test(installSection),
+  'The npm install subsection must be a region landmark labelled by npm-install-heading.',
+);
+check(
+  /<h3\b[^>]*\bid=["']npm-install-heading["'][^>]*>/i.test(npmInstallBlock),
+  'The npm install subsection must have an <h3 id="npm-install-heading">.',
+);
+const npmInstallCodeMatch = npmInstallBlock.match(
+  /<code\b[^>]*\bid=["']npm-install["'][^>]*>([\s\S]*?)<\/code>/i,
+);
+check(Boolean(npmInstallCodeMatch), 'The npm install subsection must contain <code id="npm-install">.');
+if (npmInstallCodeMatch) {
+  check(
+    decodeEntities(npmInstallCodeMatch[1]).trim() === "npm install -g holidaytw",
+    'The npm install command must be exactly "npm install -g holidaytw".',
+  );
+}
+const npmInstallCopyButton = npmInstallBlock.match(
+  /<button\b([^>]*\bdata-copy-target=["']npm-install["'][^>]*)>/i,
+);
+check(
+  Boolean(npmInstallCopyButton),
+  'The npm install command needs a copy button with data-copy-target="npm-install".',
+);
+if (npmInstallCopyButton) {
+  check(
+    /\bclass=["'][^"']*\bcode-block__copy\b[^"']*["']/i.test(npmInstallCopyButton[1]),
+    'The npm install copy button must reuse the .code-block__copy behaviour.',
+  );
+}
+const npmInstallPreMatch = npmInstallBlock.match(
+  /<pre\b([^>]*)>\s*<code\b[^>]*\bid=["']npm-install["']/i,
+);
+check(Boolean(npmInstallPreMatch), "The npm install command must live inside a <pre> element.");
+if (npmInstallPreMatch) {
+  check(
+    /\btabindex=["']0["']/i.test(npmInstallPreMatch[1]),
+    'The npm install command block must be keyboard focusable with tabindex="0".',
+  );
+}
+check(
+  /npx\s+holidaytw/i.test(npmInstallBlock),
+  'The npm install subsection must document the npx holidaytw path.',
+);
+
 check(
   /<a\b[^>]*\bhref=["']https:\/\/github\.com\/doggy8088\/holidaybook\/releases["'][^>]*>/i.test(installSection),
   "The install section must link to https://github.com/doggy8088/holidaybook/releases for versioned or manual installs.",
@@ -385,8 +440,8 @@ check(
   'The install section must not show the old "holidaybook" executable name in the Windows install path.',
 );
 
-/* The CLI is now distributed as "holidaytw" (the future npm package name
-   matches, but is intentionally not advertised here until it is published).
+/* The CLI is distributed as "holidaytw"; the npm package name and native
+   executable name intentionally match.
    The GitHub repository slug doggy8088/holidaybook, the API domain, and the
    install.sh/install.ps1 filenames are unaffected by this rename and are
    deliberately left out of this check. */
@@ -422,10 +477,9 @@ check(
 );
 
 /* Agent Skill install path: a direct repo tree URL to the root skill/SKILL.md,
-   distinct from .github/skills, documented inside the install section without
-   yet advertising npm (the package is not published). The primary command
-   must stay the plain "npx skills add ..." form -- never "--all" by default,
-   since that installs to every supported agent at once. */
+   distinct from .github/skills, documented inside the install section. The
+   primary command must stay the plain "npx skills add ..." form -- never
+   "--all" by default, since that installs to every supported agent at once. */
 const agentSkillBlock = elementBlock(installSection, "div", String.raw`id=["']agent-skill["']`);
 check(
   agentSkillBlock.length > 0,
@@ -490,11 +544,11 @@ check(
   'The Agent Skill subsection must explain the root skill/SKILL.md path versus .github/skills.',
 );
 check(
-  /holidaytw/i.test(agentSkillBlock) &&
+  /npx\s+--yes\s+holidaytw/i.test(agentSkillBlock) &&
     /npm/i.test(agentSkillBlock) &&
-    /不會執行/i.test(agentSkillBlock) &&
+    /正式發布/i.test(agentSkillBlock) &&
     /名稱所有權/i.test(agentSkillBlock),
-  "The Agent Skill subsection must not execute the unclaimed npm package before bootstrap publication.",
+  "The Agent Skill subsection must document the trusted, officially published npm path.",
 );
 check(
   /(macOS|Linux)/i.test(agentSkillBlock) && /Windows/i.test(agentSkillBlock),
