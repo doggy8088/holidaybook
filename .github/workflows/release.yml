@@ -28,7 +28,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          # The CLI uses only the standard library, so setup-go caching has no
+          # module directory to save and would emit a warning after the job.
+          cache: false
 
       - name: Run tests
         run: go test ./...

@@ -47,7 +47,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          # The CLI uses only the standard library, so there is no module cache
+          # directory to save; enabling setup-go caching emits a warning.
+          cache: false
 
       - name: Verify formatting
         shell: bash
@@ -133,7 +135,8 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          # Cross-builds have no external modules to cache.
+          cache: false
 
       - name: Cross-build CLI
         run: go build -trimpath -ldflags="-X main.version=ci" -o "${RUNNER_TEMP}/${OUTPUT_NAME}" ./cmd/holidaytw
