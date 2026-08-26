@@ -113,6 +113,28 @@ test('download: downloadToFile does not leave a partial file behind on failure',
   }
 });
 
+test('download: downloadToFile preserves a pre-existing destination file', async () => {
+  const { baseUrl, close } = await createFakeServer({
+    '/existing.bin': Buffer.from('replacement'),
+  });
+  try {
+    const dest = `${tmpDir}/existing.bin`;
+    fs.writeFileSync(dest, 'original');
+
+    await assert.rejects(
+      downloadToFile(`${baseUrl}existing.bin`, dest),
+      (err) => {
+        assert.ok(err instanceof DownloadError);
+        assert.match(err.message, /EEXIST/);
+        return true;
+      }
+    );
+    assert.equal(fs.readFileSync(dest, 'utf8'), 'original');
+  } finally {
+    await close();
+  }
+});
+
 test('download: downloadText fetches small text payloads (e.g. checksums.txt)', async () => {
   const { baseUrl, close } = await createFakeServer({
     '/checksums.txt': 'abc123  file.tar.gz\n',

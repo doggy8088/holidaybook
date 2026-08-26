@@ -62,6 +62,10 @@ async function downloadToFile(url, destPath, opts = {}) {
   let total = 0;
   const nodeReadable = Readable.fromWeb(response.body);
   const out = fs.createWriteStream(destPath, { flags: 'wx', mode: 0o600 });
+  let createdDestination = false;
+  out.once('open', () => {
+    createdDestination = true;
+  });
 
   const guard = async function* () {
     for await (const chunk of nodeReadable) {
@@ -78,7 +82,9 @@ async function downloadToFile(url, destPath, opts = {}) {
   try {
     await pipeline(guard(), out);
   } catch (err) {
-    await fs.promises.rm(destPath, { force: true });
+    if (createdDestination) {
+      await fs.promises.rm(destPath, { force: true });
+    }
     if (err instanceof DownloadError) throw err;
     throw new DownloadError(`Failed while downloading ${url}: ${err.message}`);
   }
