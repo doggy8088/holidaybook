@@ -76,11 +76,12 @@ test('postinstall: succeeds (exit 0) and installs the binary from a fake release
   const nativeDir = freshNativeDir('success');
   try {
     const { code, stdout, stderr } = await runPostinstall({
+      HOLIDAYTW_TEST_MODE: '1',
       HOLIDAYTW_PLATFORM: HOST_TARGET.platform,
       HOLIDAYTW_ARCH: HOST_TARGET.arch,
       HOLIDAYTW_NATIVE_DIR: nativeDir,
       HOLIDAYTW_BASE_URL: baseUrl,
-      ...(IS_WINDOWS ? { HOLIDAYTW_TEST_MODE: '1', HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
+      ...(IS_WINDOWS ? { HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
     });
     assert.equal(code, 0, `expected exit 0, got stderr: ${stderr}`);
     assert.match(stdout, /installed native holidaytw binary/);
@@ -98,6 +99,7 @@ test('postinstall: fails (nonzero exit, actionable stderr) on HTTP 404 and leave
   const nativeDir = freshNativeDir('http-404');
   try {
     const { code, stderr } = await runPostinstall({
+      HOLIDAYTW_TEST_MODE: '1',
       HOLIDAYTW_PLATFORM: 'linux',
       HOLIDAYTW_ARCH: 'x64',
       HOLIDAYTW_NATIVE_DIR: nativeDir,
@@ -129,6 +131,7 @@ test('postinstall: fails (nonzero exit, actionable stderr) on checksum mismatch 
   const nativeDir = freshNativeDir('checksum-mismatch');
   try {
     const { code, stderr } = await runPostinstall({
+      HOLIDAYTW_TEST_MODE: '1',
       HOLIDAYTW_PLATFORM: 'linux',
       HOLIDAYTW_ARCH: 'x64',
       HOLIDAYTW_NATIVE_DIR: nativeDir,
@@ -145,6 +148,7 @@ test('postinstall: fails (nonzero exit, actionable stderr) on checksum mismatch 
 test('postinstall: fails (nonzero exit, actionable stderr) for an unsupported platform/arch', async () => {
   const nativeDir = freshNativeDir('unsupported');
   const { code, stderr } = await runPostinstall({
+    HOLIDAYTW_TEST_MODE: '1',
     HOLIDAYTW_PLATFORM: 'freebsd',
     HOLIDAYTW_ARCH: 'x64',
     HOLIDAYTW_NATIVE_DIR: nativeDir,
@@ -152,4 +156,16 @@ test('postinstall: fails (nonzero exit, actionable stderr) for an unsupported pl
   });
   assert.notEqual(code, 0);
   assert.match(stderr, /Unsupported platform\/architecture/);
+});
+
+test('postinstall: rejects non-loopback release overrides before attempting a download', async () => {
+  const nativeDir = freshNativeDir('non-loopback');
+  const { code, stderr } = await runPostinstall({
+    HOLIDAYTW_TEST_MODE: '1',
+    HOLIDAYTW_NATIVE_DIR: nativeDir,
+    HOLIDAYTW_BASE_URL: 'https://example.com/hostile-release/',
+  });
+  assert.notEqual(code, 0);
+  assert.match(stderr, /must be an explicit loopback/);
+  assert.equal(fs.readdirSync(nativeDir).length, 0);
 });

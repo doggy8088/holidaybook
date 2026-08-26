@@ -161,15 +161,18 @@ jobs:
           set -euo pipefail
           tag="${{ steps.tag.outputs.tag }}"
 
-          declare -a expected_assets=(
-            "${NATIVE_CLI_NAME}_darwin_amd64.tar.gz"
-            "${NATIVE_CLI_NAME}_darwin_arm64.tar.gz"
-            "${NATIVE_CLI_NAME}_linux_amd64.tar.gz"
-            "${NATIVE_CLI_NAME}_linux_arm64.tar.gz"
-            "${NATIVE_CLI_NAME}_windows_amd64.zip"
-            "${NATIVE_CLI_NAME}_windows_arm64.zip"
-            "checksums.txt"
-          )
+          expected_archive_output="$(
+            node -e '
+              const { MATRIX } = require("./npm/holidaytw/lib/platformMatrix");
+              for (const target of Object.values(MATRIX)) console.log(target.asset);
+            '
+          )"
+          mapfile -t expected_archives <<< "${expected_archive_output}"
+          if [ "${#expected_archives[@]}" -ne 6 ]; then
+            echo "::error::Runtime platform matrix must contain exactly 6 native archives"
+            exit 1
+          fi
+          expected_assets=("${expected_archives[@]}" "checksums.txt")
 
           # release.yml (goreleaser) may still be uploading assets concurrently on tag push,
           # so poll with a bounded timeout instead of failing on the first miss.
@@ -257,14 +260,17 @@ jobs:
             seen_hash["${name}"]="${hash}"
           done < "${dest}"
 
-          declare -a expected_archives=(
-            "${NATIVE_CLI_NAME}_darwin_amd64.tar.gz"
-            "${NATIVE_CLI_NAME}_darwin_arm64.tar.gz"
-            "${NATIVE_CLI_NAME}_linux_amd64.tar.gz"
-            "${NATIVE_CLI_NAME}_linux_arm64.tar.gz"
-            "${NATIVE_CLI_NAME}_windows_amd64.zip"
-            "${NATIVE_CLI_NAME}_windows_arm64.zip"
-          )
+          expected_archive_output="$(
+            node -e '
+              const { MATRIX } = require("./npm/holidaytw/lib/platformMatrix");
+              for (const target of Object.values(MATRIX)) console.log(target.asset);
+            '
+          )"
+          mapfile -t expected_archives <<< "${expected_archive_output}"
+          if [ "${#expected_archives[@]}" -ne 6 ]; then
+            echo "::error::Runtime platform matrix must contain exactly 6 native archives"
+            exit 1
+          fi
           missing=()
           for asset in "${expected_archives[@]}"; do
             if [ -z "${seen_hash[${asset}]:-}" ]; then

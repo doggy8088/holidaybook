@@ -40,6 +40,7 @@ function fixtureScript(name) {
 
 test('launch: forwards arguments to the resolved native binary', async () => {
   const { code, stdout } = await runLauncher([fixtureScript('echo-args'), 'foo', 'bar', '--baz=qux'], {
+    HOLIDAYTW_TEST_MODE: '1',
     HOLIDAYTW_BIN_OVERRIDE: process.execPath,
   });
   assert.equal(code, 0);
@@ -47,17 +48,24 @@ test('launch: forwards arguments to the resolved native binary', async () => {
 });
 
 test('launch: forwards the exact exit code of the native binary', async () => {
-  const { code } = await runLauncher([fixtureScript('exit-code'), '7'], { HOLIDAYTW_BIN_OVERRIDE: process.execPath });
+  const { code } = await runLauncher([fixtureScript('exit-code'), '7'], {
+    HOLIDAYTW_TEST_MODE: '1',
+    HOLIDAYTW_BIN_OVERRIDE: process.execPath,
+  });
   assert.equal(code, 7);
 });
 
 test('launch: forwards exit code 0', async () => {
-  const { code } = await runLauncher([fixtureScript('exit-code'), '0'], { HOLIDAYTW_BIN_OVERRIDE: process.execPath });
+  const { code } = await runLauncher([fixtureScript('exit-code'), '0'], {
+    HOLIDAYTW_TEST_MODE: '1',
+    HOLIDAYTW_BIN_OVERRIDE: process.execPath,
+  });
   assert.equal(code, 0);
 });
 
 test('launch: unsupported platform/arch produces an explicit stderr message and exit code 1', async () => {
   const { code, stderr } = await runLauncher([], {
+    HOLIDAYTW_TEST_MODE: '1',
     HOLIDAYTW_PLATFORM: 'freebsd',
     HOLIDAYTW_ARCH: 'x64',
   });
@@ -68,6 +76,7 @@ test('launch: unsupported platform/arch produces an explicit stderr message and 
 
 test('launch: missing HOLIDAYTW_BIN_OVERRIDE file produces an explicit error and exit code 1', async () => {
   const { code, stderr } = await runLauncher([], {
+    HOLIDAYTW_TEST_MODE: '1',
     HOLIDAYTW_BIN_OVERRIDE: path.join(FIXTURES, 'does-not-exist'),
   });
   assert.equal(code, 1);
@@ -77,7 +86,7 @@ test('launch: missing HOLIDAYTW_BIN_OVERRIDE file produces an explicit error and
 test('launch: forwards SIGTERM to the child and mirrors the same termination signal', async () => {
   const { code, signal } = await runLauncher(
     [fixtureScript('sleep'), '5000'],
-    { HOLIDAYTW_BIN_OVERRIDE: process.execPath },
+    { HOLIDAYTW_TEST_MODE: '1', HOLIDAYTW_BIN_OVERRIDE: process.execPath },
     {
       onSpawn(child) {
         setTimeout(() => child.kill('SIGTERM'), 500);
@@ -145,15 +154,14 @@ test('launch: performs a lazy install when the binary is missing, using a local 
   const nativeDir = makeTmpDir('launch-lazy-native-');
   try {
     const { code, stderr, stdout } = await runLauncher(['--version'], {
+      HOLIDAYTW_TEST_MODE: '1',
       HOLIDAYTW_NATIVE_DIR: nativeDir,
       HOLIDAYTW_BASE_URL: baseUrl,
       // Only takes effect on win32 here; the three safeguards in
       // lib/testHooks.js (test-mode marker + loopback baseUrl + nonempty
       // override) are all satisfied by this test on that platform, and
       // this hook is a no-op everywhere else.
-      ...(isWindows
-        ? { HOLIDAYTW_TEST_MODE: '1', HOLIDAYTW_TEST_EXPECTED_VERSION: process.version }
-        : {}),
+      ...(isWindows ? { HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
     });
     assert.equal(code, 0, `expected exit 0, got stderr: ${stderr}`);
     assert.equal(stdout.trim(), isWindows ? process.version : 'holidaytw 2.0.0');

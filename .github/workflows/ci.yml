@@ -213,6 +213,7 @@ jobs:
       - name: Validate executable wrapper behavior (no network)
         shell: bash
         env:
+          HOLIDAYTW_TEST_MODE: "1"
           HOLIDAYTW_PLATFORM: plan9
           HOLIDAYTW_ARCH: mips
         run: |

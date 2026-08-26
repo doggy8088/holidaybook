@@ -102,18 +102,18 @@ function buildFakeRelease() {
 /**
  * Environment passed to the spawned npm processes: HOLIDAYTW_BASE_URL
  * points postinstall's real download logic at our local fake server
- * instead of the real GitHub Releases domain. On win32 only, this also
- * satisfies all three of lib/testHooks.js's required safeguards
- * (HOLIDAYTW_TEST_MODE='1' + an explicit loopback HOLIDAYTW_BASE_URL +
- * a nonempty override) so verification accepts node.exe's own
- * `--version` output; on every other platform this hook is simply
- * unused and production's real `holidaytw <version>` check applies.
+ * instead of the real GitHub Releases domain. Every platform sets the
+ * explicit test marker and loopback URL required by lib/testHooks.js.
+ * On win32 only, the nonempty expected-version override additionally
+ * lets verification accept node.exe's own `--version` output; every
+ * other platform still checks the real `holidaytw <version>` string.
  */
 function releaseEnv(baseUrl) {
   return {
     ...process.env,
+    HOLIDAYTW_TEST_MODE: '1',
     HOLIDAYTW_BASE_URL: baseUrl,
-    ...(IS_WINDOWS ? { HOLIDAYTW_TEST_MODE: '1', HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
+    ...(IS_WINDOWS ? { HOLIDAYTW_TEST_EXPECTED_VERSION: process.version } : {}),
   };
 }
 

@@ -6,24 +6,11 @@ const { Readable } = require('stream');
 
 class DownloadError extends Error {}
 
-/**
- * Download a URL to a file on disk, streaming to bound memory usage and
- * enforcing a maximum byte count against both the advertised
- * Content-Length and the actual bytes received.
- *
- * @param {string} url
- * @param {string} destPath
- * @param {{maxBytes?: number, timeoutMs?: number, fetchImpl?: typeof fetch}} [opts]
- * @returns {Promise<number>} total bytes written
- */
-async function downloadToFile(url, destPath, opts = {}) {
-  const maxBytes = opts.maxBytes ?? Infinity;
-  const timeoutMs = opts.timeoutMs ?? 60_000;
-  const doFetch = opts.fetchImpl ?? fetch;
-
+async function fetchBoundedResponse(url, opts) {
+  const { maxBytes, timeoutMs, fetchImpl } = opts;
   let response;
   try {
-    response = await doFetch(url, {
+    response = await fetchImpl(url, {
       redirect: 'follow',
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -47,6 +34,30 @@ async function downloadToFile(url, destPath, opts = {}) {
       );
     }
   }
+
+  return response;
+}
+
+/**
+ * Download a URL to a file on disk, streaming to bound memory usage and
+ * enforcing a maximum byte count against both the advertised
+ * Content-Length and the actual bytes received.
+ *
+ * @param {string} url
+ * @param {string} destPath
+ * @param {{maxBytes?: number, timeoutMs?: number, fetchImpl?: typeof fetch}} [opts]
+ * @returns {Promise<number>} total bytes written
+ */
+async function downloadToFile(url, destPath, opts = {}) {
+  const maxBytes = opts.maxBytes ?? Infinity;
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const doFetch = opts.fetchImpl ?? fetch;
+
+  const response = await fetchBoundedResponse(url, {
+    maxBytes,
+    timeoutMs,
+    fetchImpl: doFetch,
+  });
 
   let total = 0;
   const nodeReadable = Readable.fromWeb(response.body);
@@ -86,29 +97,11 @@ async function downloadText(url, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const doFetch = opts.fetchImpl ?? fetch;
 
-  let response;
-  try {
-    response = await doFetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (err) {
-    throw new DownloadError(`Network error while downloading ${url}: ${err.message}`);
-  }
-
-  if (!response.ok) {
-    throw new DownloadError(`HTTP ${response.status} ${response.statusText} while downloading ${url}`);
-  }
-
-  const contentLength = response.headers.get('content-length');
-  if (contentLength !== null) {
-    const declared = Number(contentLength);
-    if (Number.isFinite(declared) && declared > maxBytes) {
-      throw new DownloadError(
-        `Refusing to download ${url}: declared size ${declared} bytes exceeds the maximum allowed ${maxBytes} bytes`
-      );
-    }
-  }
+  const response = await fetchBoundedResponse(url, {
+    maxBytes,
+    timeoutMs,
+    fetchImpl: doFetch,
+  });
 
   let buf;
   try {

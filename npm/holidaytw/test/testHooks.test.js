@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { resolveTestExpectedVersion, isLoopbackHttpUrl } = require('../lib/testHooks');
+const { resolveTestOverrides, isLoopbackHttpUrl } = require('../lib/testHooks');
 
 test('testHooks: isLoopbackHttpUrl accepts only explicit http(s) loopback URLs', () => {
   assert.equal(isLoopbackHttpUrl('http://127.0.0.1:1234/'), true);
@@ -19,70 +19,64 @@ test('testHooks: isLoopbackHttpUrl accepts only explicit http(s) loopback URLs',
   assert.equal(isLoopbackHttpUrl(undefined), false);
 });
 
-test('resolveTestExpectedVersion: returns the override only when every safeguard holds', () => {
+test('resolveTestOverrides: returns overrides only when every safeguard holds', () => {
   const fullyValidEnv = {
     HOLIDAYTW_TEST_MODE: '1',
+    HOLIDAYTW_PLATFORM: 'win32',
+    HOLIDAYTW_ARCH: 'arm64',
+    HOLIDAYTW_NATIVE_DIR: '/tmp/holidaytw-test',
     HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
     HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
   };
-  assert.equal(resolveTestExpectedVersion(fullyValidEnv), 'v20.11.0');
+  assert.deepEqual(resolveTestOverrides(fullyValidEnv), {
+    binOverride: undefined,
+    platform: 'win32',
+    arch: 'arm64',
+    nativeDir: '/tmp/holidaytw-test',
+    baseUrl: 'http://127.0.0.1:5000/',
+    expectedVersionString: 'v20.11.0',
+  });
 });
 
-test('resolveTestExpectedVersion: ignores the override when HOLIDAYTW_TEST_MODE is not exactly "1"', () => {
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
-      HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
-    }),
-    undefined
+test('resolveTestOverrides: rejects overrides when HOLIDAYTW_TEST_MODE is not exactly "1"', () => {
+  assert.throws(
+    () =>
+      resolveTestOverrides({
+        HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
+      }),
+    /require HOLIDAYTW_TEST_MODE=1/
   );
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_TEST_MODE: 'true',
-      HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
-      HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
-    }),
-    undefined
-  );
-});
-
-test('resolveTestExpectedVersion: ignores the override when HOLIDAYTW_BASE_URL is not an explicit loopback URL', () => {
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_TEST_MODE: '1',
-      HOLIDAYTW_BASE_URL: 'https://github.com/doggy8088/holidaybook/releases/download/v2.0.0/',
-      HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
-    }),
-    undefined
-  );
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_TEST_MODE: '1',
-      HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
-    }),
-    undefined
+  assert.throws(
+    () =>
+      resolveTestOverrides({
+        HOLIDAYTW_TEST_MODE: 'true',
+        HOLIDAYTW_BIN_OVERRIDE: process.execPath,
+      }),
+    /require HOLIDAYTW_TEST_MODE=1/
   );
 });
 
-test('resolveTestExpectedVersion: ignores the override when it is empty/unset', () => {
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_TEST_MODE: '1',
-      HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
-      HOLIDAYTW_TEST_EXPECTED_VERSION: '',
-    }),
-    undefined
+test('resolveTestOverrides: rejects non-loopback release URLs and incomplete version overrides', () => {
+  assert.throws(
+    () =>
+      resolveTestOverrides({
+        HOLIDAYTW_TEST_MODE: '1',
+        HOLIDAYTW_BASE_URL: 'https://github.com/doggy8088/holidaybook/releases/download/v2.0.0/',
+      }),
+    /explicit loopback/
   );
-  assert.equal(
-    resolveTestExpectedVersion({
-      HOLIDAYTW_TEST_MODE: '1',
-      HOLIDAYTW_BASE_URL: 'http://127.0.0.1:5000/',
-    }),
-    undefined
+  assert.throws(
+    () =>
+      resolveTestOverrides({
+        HOLIDAYTW_TEST_MODE: '1',
+        HOLIDAYTW_TEST_EXPECTED_VERSION: 'v20.11.0',
+      }),
+    /requires a loopback/
   );
 });
 
-test('resolveTestExpectedVersion: tolerates a missing/undefined env object', () => {
-  assert.equal(resolveTestExpectedVersion(undefined), undefined);
-  assert.equal(resolveTestExpectedVersion({}), undefined);
+test('resolveTestOverrides: returns no overrides for a production environment', () => {
+  assert.deepEqual(resolveTestOverrides(undefined), {});
+  assert.deepEqual(resolveTestOverrides({}), {});
+  assert.deepEqual(resolveTestOverrides({ HOLIDAYTW_TEST_MODE: '1' }), {});
 });

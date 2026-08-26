@@ -23,11 +23,11 @@
 // HOLIDAYTW_NATIVE_DIR, HOLIDAYTW_BASE_URL, HOLIDAYTW_PLATFORM,
 // HOLIDAYTW_ARCH -- mirrors the same hooks used by lib/launch.js, so
 // tests can point this script at a local fake release server instead of
-// the real GitHub release. See lib/testHooks.js for the (separately,
-// strictly guarded) HOLIDAYTW_TEST_EXPECTED_VERSION hook.
+// the real GitHub release. lib/testHooks.js requires explicit test mode
+// and a loopback release URL before any override is honored.
 
 const { ensureInstalled } = require('../lib/installer');
-const { resolveTestExpectedVersion } = require('../lib/testHooks');
+const { resolveTestOverrides } = require('../lib/testHooks');
 
 /**
  * @param {NodeJS.ProcessEnv} [env]
@@ -35,12 +35,13 @@ const { resolveTestExpectedVersion } = require('../lib/testHooks');
  */
 async function main(env = process.env) {
   try {
+    const testOverrides = resolveTestOverrides(env);
     const result = await ensureInstalled({
-      platform: env.HOLIDAYTW_PLATFORM || undefined,
-      arch: env.HOLIDAYTW_ARCH || undefined,
-      nativeDir: env.HOLIDAYTW_NATIVE_DIR || undefined,
-      baseUrl: env.HOLIDAYTW_BASE_URL || undefined,
-      expectedVersionString: resolveTestExpectedVersion(env),
+      platform: testOverrides.platform,
+      arch: testOverrides.arch,
+      nativeDir: testOverrides.nativeDir,
+      baseUrl: testOverrides.baseUrl,
+      expectedVersionString: testOverrides.expectedVersionString,
     });
     if (result.installed) {
       console.log(`holidaytw: installed native holidaytw binary for ${result.target}.`);

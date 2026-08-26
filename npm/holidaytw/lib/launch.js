@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const config = require('./config');
 const { resolveTarget, UnsupportedPlatformError } = require('./platformMatrix');
 const { ensureInstalled, fileExistsNonEmpty } = require('./installer');
-const { resolveTestExpectedVersion } = require('./testHooks');
+const { resolveTestOverrides } = require('./testHooks');
 
 // Signals we attempt to forward from this launcher process to the spawned
 // native binary. Not all are available on every platform; registering a
@@ -19,26 +19,28 @@ const FORWARDABLE_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK', 'SIGQUIT
  * Resolve which binary to execute. Supports test-only environment
  * variable overrides (HOLIDAYTW_BIN_OVERRIDE / _PLATFORM / _ARCH /
  * _NATIVE_DIR / _BASE_URL); when unset, production defaults apply
- * unchanged. See lib/testHooks.js for the (separately, strictly guarded)
- * HOLIDAYTW_TEST_EXPECTED_VERSION hook.
+ * unchanged. lib/testHooks.js requires explicit test mode and a loopback
+ * release URL before any override is honored.
  *
  * @param {NodeJS.ProcessEnv} env
  * @returns {Promise<string>} absolute path to the binary to execute
  */
 async function resolveBinaryPath(env) {
-  if (env.HOLIDAYTW_BIN_OVERRIDE) {
-    const override = env.HOLIDAYTW_BIN_OVERRIDE;
+  const testOverrides = resolveTestOverrides(env);
+
+  if (testOverrides.binOverride) {
+    const override = testOverrides.binOverride;
     if (!fileExistsNonEmpty(override)) {
       throw new Error(`HOLIDAYTW_BIN_OVERRIDE points to a missing or empty file: ${override}`);
     }
     return override;
   }
 
-  const platform = env.HOLIDAYTW_PLATFORM || process.platform;
-  const arch = env.HOLIDAYTW_ARCH || process.arch;
+  const platform = testOverrides.platform || process.platform;
+  const arch = testOverrides.arch || process.arch;
   const target = resolveTarget(platform, arch); // throws UnsupportedPlatformError
 
-  const nativeDir = env.HOLIDAYTW_NATIVE_DIR || path.join(config.PACKAGE_ROOT, 'native');
+  const nativeDir = testOverrides.nativeDir || path.join(config.PACKAGE_ROOT, 'native');
   const binPath = path.join(nativeDir, target.key, target.binName);
 
   if (!fileExistsNonEmpty(binPath)) {
@@ -47,14 +49,12 @@ async function resolveBinaryPath(env) {
       platform,
       arch,
       nativeDir,
-      baseUrl: env.HOLIDAYTW_BASE_URL || undefined,
-      expectedVersionString: resolveTestExpectedVersion(env),
+      baseUrl: testOverrides.baseUrl,
+      expectedVersionString: testOverrides.expectedVersionString,
     });
   }
-
   return binPath;
 }
-
 
 /**
  * Spawn binPath with args, inheriting stdio, and forward termination
