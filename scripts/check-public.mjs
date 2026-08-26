@@ -83,7 +83,7 @@ const NAMED_ENTITIES = {
   apos: "'",
   gt: ">",
   lt: "<",
-  nbsp: " ",
+  nbsp: "\u00a0",
   quot: '"',
 };
 
@@ -187,8 +187,19 @@ if (themeBootstrap) {
   );
 }
 
+/* Attributes are matched with independent lookaheads so that reordering them --
+   which is semantically identical HTML -- cannot cause a false failure, while
+   every required attribute is still mandatory. */
+function hasAttributes(tag, attributes) {
+  const lookaheads = attributes.map((attribute) => `(?=[^>]*\\b${attribute})`).join("");
+  return new RegExp(`<${tag}\\b${lookaheads}[^>]*>`, "i");
+}
+
 check(
-  /<div\b[^>]*\bclass=["'][^"']*\bquick-dates\b[^"']*["'][^>]*\brole=["']group["'][^>]*>/i.test(html),
+  hasAttributes("div", [
+    String.raw`class=["'][^"']*\bquick-dates\b[^"']*["']`,
+    String.raw`role=["']group["']`,
+  ]).test(html),
   'The .quick-dates container must include role="group".',
 );
 
@@ -207,7 +218,10 @@ codePreMatches.forEach((match, index) => {
    so its anchor, exact commands and copy wiring are pinned here rather than
    left to a visual review. */
 check(
-  /<section\b[^>]*\bid=["']install["'][^>]*\baria-labelledby=["']install-heading["'][^>]*>/i.test(html),
+  hasAttributes("section", [
+    String.raw`id=["']install["']`,
+    String.raw`aria-labelledby=["']install-heading["']`,
+  ]).test(html),
   'The page must contain <section id="install"> labelled by install-heading.',
 );
 check(
