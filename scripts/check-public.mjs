@@ -1,0 +1,318 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const paths = {
+  cname: resolve(root, "public/CNAME"),
+  html: resolve(root, "public/index.html"),
+  css: resolve(root, "public/styles.css"),
+  app: resolve(root, "public/app.js"),
+};
+const errors = [];
+
+function check(condition, message) {
+  if (!condition) {
+    errors.push(message);
+  }
+}
+
+function readRequired(label, path) {
+  check(existsSync(path), `${label} is missing: ${path}`);
+  if (!existsSync(path)) {
+    return "";
+  }
+
+  const content = readFileSync(path, "utf8");
+  check(content.trim().length > 0, `${label} is empty: ${path}`);
+  return content;
+}
+
+function matchingBlocks(source, openingPattern) {
+  const pattern = new RegExp(openingPattern.source, openingPattern.flags.includes("g")
+    ? openingPattern.flags
+    : `${openingPattern.flags}g`);
+  const blocks = [];
+  let match;
+
+  while ((match = pattern.exec(source)) !== null) {
+    const open = source.indexOf("{", match.index);
+    let depth = 0;
+
+    for (let index = open; index < source.length; index += 1) {
+      if (source[index] === "{") {
+        depth += 1;
+      } else if (source[index] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          blocks.push(source.slice(open + 1, index));
+          pattern.lastIndex = index + 1;
+          break;
+        }
+      }
+    }
+  }
+
+  return blocks;
+}
+
+function ruleBody(source, selector) {
+  return matchingBlocks(source, new RegExp(`${selector}\\s*\\{`, "i"))[0] ?? "";
+}
+
+function hasDeclaration(body, property, value) {
+  return new RegExp(`${property}\\s*:\\s*${value}\\s*;`, "i").test(body);
+}
+
+function hasThemeVariables(body) {
+  return ["--bg", "--surface", "--text"].every((property) =>
+    new RegExp(`${property}\\s*:`, "i").test(body));
+}
+
+const cname = readRequired("GitHub Pages CNAME", paths.cname);
+const html = readRequired("Page HTML", paths.html);
+const css = readRequired("Page stylesheet", paths.css);
+readRequired("Page JavaScript", paths.app);
+
+check(
+  cname.trim() === "holiday.gh.miniasp.com",
+  'public/CNAME must contain exactly "holiday.gh.miniasp.com".',
+);
+
+const metadataChecks = [
+  [/<html\b[^>]*\blang=["']zh-Hant["']/i, 'the page language lang="zh-Hant"'],
+  [/<meta\b[^>]*\bcharset=["']?UTF-8["']?/i, "UTF-8 charset metadata"],
+  [/<meta\b[^>]*\bname=["']viewport["'][^>]*\bcontent=["'][^"']*width=device-width/i, "viewport metadata"],
+  [/<title>\s*[^<]*台灣假期速查[^<]*<\/title>/i, "a descriptive page title"],
+  [/<meta\b[^>]*\bname=["']description["'][^>]*\bcontent=["'][^"']+["']/i, "meta description"],
+  [/<link\b[^>]*\brel=["']canonical["'][^>]*\bhref=["']https:\/\/holiday\.gh\.miniasp\.com\/["']/i, "canonical URL"],
+  [/<meta\b[^>]*\bproperty=["']og:type["'][^>]*\bcontent=["']website["']/i, "Open Graph type"],
+  [/<meta\b[^>]*\bproperty=["']og:title["'][^>]*\bcontent=["'][^"']+["']/i, "Open Graph title"],
+  [/<meta\b[^>]*\bproperty=["']og:description["'][^>]*\bcontent=["'][^"']+["']/i, "Open Graph description"],
+  [/<meta\b[^>]*\bproperty=["']og:url["'][^>]*\bcontent=["']https:\/\/holiday\.gh\.miniasp\.com\/["']/i, "Open Graph URL"],
+  [/<meta\b[^>]*\bproperty=["']og:image["'][^>]*\bcontent=["']https:\/\/holiday\.gh\.miniasp\.com\/assets\/og-taiwan-holiday\.jpg["']/i, "an absolute Open Graph image URL"],
+  [/<meta\b[^>]*\bproperty=["']og:image:alt["'][^>]*\bcontent=["'][^"']+["']/i, "Open Graph image alt text"],
+  [/<meta\b[^>]*\bname=["']twitter:card["'][^>]*\bcontent=["']summary_large_image["']/i, "a large-image Twitter card"],
+  [/<meta\b[^>]*\bname=["']twitter:image["'][^>]*\bcontent=["']https:\/\/holiday\.gh\.miniasp\.com\/assets\/og-taiwan-holiday\.jpg["']/i, "an absolute Twitter card image URL"],
+  [/<script\b[^>]*\btype=["']application\/ld\+json["'][^>]*>/i, "JSON-LD metadata"],
+  [/<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']styles\.css["']/i, "styles.css asset reference"],
+  [/<script\b[^>]*\bsrc=["']app\.js["'][^>]*\bdefer\b[^>]*>/i, "deferred app.js asset reference"],
+];
+
+for (const [pattern, label] of metadataChecks) {
+  check(pattern.test(html), `public/index.html is missing ${label}.`);
+}
+
+check(
+  /<[^>]+\bid=["']theme-toggle["'][^>]*>/i.test(html),
+  'public/index.html must include the theme control id="theme-toggle".',
+);
+
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)];
+const themeBootstrap = inlineScripts.find((match) => match[1].includes("holidaybook-theme"));
+const stylesheetIndex = html.search(
+  /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']styles\.css["']/i,
+);
+check(
+  Boolean(themeBootstrap),
+  'public/index.html must include an inline theme bootstrap using "holidaybook-theme".',
+);
+
+if (themeBootstrap) {
+  const bootstrap = themeBootstrap[1];
+  const validThemeGuard = (
+    /["']light["'][\s\S]{0,240}(?:\|\||&&)[\s\S]{0,240}["']dark["']/i.test(bootstrap)
+    || /["']dark["'][\s\S]{0,240}(?:\|\||&&)[\s\S]{0,240}["']light["']/i.test(bootstrap)
+    || /(?:includes|has)\s*\([^)]*\)/i.test(bootstrap)
+  );
+
+  check(
+    themeBootstrap.index < stylesheetIndex,
+    "The theme bootstrap must run before styles.css loads to avoid a theme flash.",
+  );
+  check(
+    /localStorage\s*\.\s*getItem\s*\(/i.test(bootstrap),
+    'The theme bootstrap must read localStorage key "holidaybook-theme".',
+  );
+  check(
+    validThemeGuard && /["']light["']/i.test(bootstrap) && /["']dark["']/i.test(bootstrap),
+    'The theme bootstrap must accept only the stored values "light" and "dark".',
+  );
+  check(
+    /document\s*\.\s*documentElement/i.test(bootstrap)
+      && /(?:dataset\s*\.\s*theme\s*=|setAttribute\s*\(\s*["']data-theme["'])/i.test(bootstrap),
+    "The theme bootstrap must apply the validated value to the root data-theme attribute.",
+  );
+}
+
+check(
+  /<div\b[^>]*\bclass=["'][^"']*\bquick-dates\b[^"']*["'][^>]*\brole=["']group["'][^>]*>/i.test(html),
+  'The .quick-dates container must include role="group".',
+);
+
+const codeBlockCount = [...html.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bcode-block\b[^"']*["'][^>]*>/gi)].length;
+const codePreMatches = [...html.matchAll(/<pre\b([^>]*)>\s*<code\b/gi)];
+check(codeBlockCount === 5, `Expected 5 .code-block elements, found ${codeBlockCount}.`);
+check(codePreMatches.length === 5, `Expected 5 code-block <pre> elements, found ${codePreMatches.length}.`);
+codePreMatches.forEach((match, index) => {
+  check(
+    /\btabindex=["']0["']/i.test(match[1]),
+    `Code-block <pre> ${index + 1} must include tabindex="0".`,
+  );
+});
+
+const images = [...html.matchAll(/<img\b([^>]*)>/gi)].map((match) => match[1]);
+const attr = (source, name) => {
+  const found = source.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"));
+  return found ? found[1] : null;
+};
+
+check(images.length >= 4, `Expected at least 4 <img> elements, found ${images.length}.`);
+images.forEach((source) => {
+  const src = attr(source, "src") ?? "(unknown src)";
+  check(Boolean(attr(source, "alt")?.trim()), `Image ${src} must have non-empty alt text.`);
+  check(
+    Boolean(attr(source, "width")) && Boolean(attr(source, "height")),
+    `Image ${src} must declare explicit width and height to keep layout stable.`,
+  );
+});
+
+const heroImage = images.find((source) => (attr(source, "src") ?? "").includes("taiwan-coast-hero.jpg"));
+check(Boolean(heroImage), "The hero must use assets/taiwan-coast-hero.jpg.");
+if (heroImage) {
+  check(
+    /\bfetchpriority=["']high["']/i.test(heroImage),
+    'The hero image must set fetchpriority="high" for LCP.',
+  );
+  check(
+    !/\bloading=["']lazy["']/i.test(heroImage),
+    "The above-the-fold hero image must not be lazy loaded.",
+  );
+}
+
+for (const lazyAsset of ["taiwan-civic-street.jpg", "taiwan-calendar-still-life.jpg"]) {
+  const image = images.find((source) => (attr(source, "src") ?? "").includes(lazyAsset));
+  check(Boolean(image), `The supporting image assets/${lazyAsset} must be used on the page.`);
+  if (image) {
+    check(
+      /\bloading=["']lazy["']/i.test(image),
+      `The below-the-fold image ${lazyAsset} must set loading="lazy".`,
+    );
+  }
+}
+
+const flagImage = images.find((source) => (attr(source, "src") ?? "").includes("taiwan-flag.svg"));
+check(
+  Boolean(flagImage),
+  "The Taiwan flag asset assets/taiwan-flag.svg must be shown on the page.",
+);
+
+check(
+  /Copyright\s*©\s*2026\s*<a\b[^>]*\bhref=["']https:\/\/www\.facebook\.com\/will\.fans\/["'][^>]*>\s*Will 保哥\s*<\/a>/.test(html),
+  'The footer must read "Copyright © 2026 Will 保哥" with only "Will 保哥" linking to https://www.facebook.com/will.fans/.',
+);
+
+[...html.matchAll(/<a\b([^>]*)>/gi)]
+  .map((match) => match[1])
+  .filter((source) => /\btarget=["']_blank["']/i.test(source))
+  .forEach((source) => {
+    check(
+      /\brel=["'][^"']*\bnoopener\b[^"']*["']/i.test(source),
+      `Links opening a new tab must set rel="noopener": <a${source}>`,
+    );
+  });
+
+const splitBody = ruleBody(css, String.raw`\.split\s*>\s*\*`);check(splitBody.length > 0, "public/styles.css is missing the .split > * rule.");
+check(
+  hasDeclaration(splitBody, "min-width", "0"),
+  "The .split > * rule must set min-width: 0.",
+);
+
+const ghostHoverBody = ruleBody(css, String.raw`\.btn--ghost:hover`);
+check(ghostHoverBody.length > 0, "public/styles.css is missing the .btn--ghost:hover rule.");
+check(
+  hasDeclaration(ghostHoverBody, "background", String.raw`var\(\s*--accent-tint\s*\)`),
+  "The .btn--ghost:hover rule must set background: var(--accent-tint).",
+);
+
+const explicitDarkThemeBody = ruleBody(
+  css,
+  String.raw`(?:\:root|html)?\s*\[\s*data-theme\s*=\s*["']dark["']\s*\]`,
+);
+check(
+  explicitDarkThemeBody.length > 0 && hasThemeVariables(explicitDarkThemeBody),
+  'public/styles.css must define dark theme variables under [data-theme="dark"].',
+);
+
+const darkMediaBlocks = matchingBlocks(
+  css,
+  /@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{/gi,
+);
+const hasSafeDarkFallback = darkMediaBlocks.some((mediaBody) => {
+  const excludesLightBody = ruleBody(
+    mediaBody,
+    String.raw`(?:\:root|html)\s*:not\(\s*\[\s*data-theme\s*=\s*["']light["']\s*\]\s*\)`,
+  );
+  const unthemedBody = ruleBody(
+    mediaBody,
+    String.raw`(?:\:root|html)\s*:not\(\s*\[\s*data-theme\s*\]\s*\)`,
+  );
+  const defaultDarkBody = ruleBody(mediaBody, String.raw`(?:\:root|html)`);
+  const explicitLightBody = ruleBody(
+    mediaBody,
+    String.raw`(?:\:root|html)?\s*\[\s*data-theme\s*=\s*["']light["']\s*\]`,
+  );
+
+  return hasThemeVariables(excludesLightBody)
+    || hasThemeVariables(unthemedBody)
+    || (hasThemeVariables(defaultDarkBody) && hasThemeVariables(explicitLightBody));
+});
+check(
+  hasSafeDarkFallback,
+  'The dark prefers-color-scheme fallback must preserve an explicit [data-theme="light"] override.',
+);
+
+const responsiveMedia = matchingBlocks(
+  css,
+  /@media\s*\(\s*max-width\s*:\s*48rem\s*\)\s*,\s*\(\s*pointer\s*:\s*coarse\s*\)\s*\{/i,
+)[0] ?? "";
+check(
+  responsiveMedia.length > 0,
+  "Missing scoped @media (max-width: 48rem), (pointer: coarse) touch-target rules.",
+);
+
+const iconBody = ruleBody(responsiveMedia, String.raw`\.icon-btn`);
+check(
+  hasDeclaration(iconBody, "width", String.raw`2\.75rem`)
+    && hasDeclaration(iconBody, "height", String.raw`2\.75rem`),
+  "The scoped .icon-btn touch target must be 2.75rem wide and high.",
+);
+
+const quickButtonBody = ruleBody(
+  responsiveMedia,
+  String.raw`\.quick-dates\s+\.btn--small`,
+);
+check(
+  hasDeclaration(quickButtonBody, "min-height", String.raw`2\.75rem`)
+    && hasDeclaration(
+      quickButtonBody,
+      "padding-block",
+      String.raw`(?:0?\.5rem|var\(\s*--space-2\s*\))`,
+    ),
+  "The scoped quick-date buttons must set min-height: 2.75rem and 0.5rem block padding.",
+);
+
+const navLinkBody = ruleBody(responsiveMedia, String.raw`\.site-nav\s+a`);
+check(
+  hasDeclaration(navLinkBody, "display", "inline-flex")
+    && hasDeclaration(navLinkBody, "min-height", String.raw`2\.75rem`),
+  "The scoped site navigation links must use inline-flex with min-height: 2.75rem.",
+);
+
+if (errors.length > 0) {
+  console.error(`Public site contract check failed (${errors.length} issue${errors.length === 1 ? "" : "s"}):`);
+  errors.forEach((error) => console.error(`- ${error}`));
+  process.exit(1);
+}
+
+console.log("Public site contract check passed.");
