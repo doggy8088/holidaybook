@@ -11,7 +11,7 @@ const { resolveNpmCli } = require('./helpers/npmCli');
 const packageRoot = path.join(__dirname, '..');
 const pkg = require(path.join(packageRoot, 'package.json'));
 
-test('pack: npm pack tarball contains only intended files and the executable bin entry', () => {
+test('pack: npm pack tarball contains only intended files and the bin entry', () => {
   const workDir = fs.mkdtempSync(path.join(packageRoot, '.pack-check-test-'));
   try {
     const npmCli = resolveNpmCli();
@@ -48,7 +48,9 @@ test('pack: npm pack tarball contains only intended files and the executable bin
 
     const binLauncher = entries.find((e) => e.name === 'bin/holidaytw.js');
     assert.ok(binLauncher, 'bin/holidaytw.js must be present');
-    assert.match(binLauncher.mode, /^-rwx/, 'bin/holidaytw.js must be executable in the tarball');
+    if (process.platform !== 'win32') {
+      assert.match(binLauncher.mode, /^-rwx/, 'bin/holidaytw.js must be executable in the tarball');
+    }
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }

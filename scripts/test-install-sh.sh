@@ -11,7 +11,7 @@
 
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo_root=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 work_root=$(mktemp -d "${TMPDIR:-/tmp}/holidaytw-install-test.XXXXXXXX") ||
   { echo "FAIL: cannot create a temporary work directory" >&2; exit 1; }
 cleanup() {

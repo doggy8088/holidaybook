@@ -70,8 +70,10 @@ test('installer: happy path installs, verifies, and reports installed=true for l
     assert.equal(result.installed, true);
     assert.equal(result.target, 'linux-x64');
     assert.ok(fs.existsSync(result.binPath));
-    const stat = fs.statSync(result.binPath);
-    assert.ok(stat.mode & 0o111, 'installed binary should be executable');
+    if (process.platform !== 'win32') {
+      const stat = fs.statSync(result.binPath);
+      assert.ok(stat.mode & 0o111, 'installed binary should be executable');
+    }
 
     // No leftover staging/lock artifacts.
     const entries = fs.readdirSync(nativeDir);
