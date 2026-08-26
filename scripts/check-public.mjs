@@ -222,7 +222,8 @@ check(
     );
   });
 
-const splitBody = ruleBody(css, String.raw`\.split\s*>\s*\*`);check(splitBody.length > 0, "public/styles.css is missing the .split > * rule.");
+const splitBody = ruleBody(css, String.raw`\.split\s*>\s*\*`);
+check(splitBody.length > 0, "public/styles.css is missing the .split > * rule.");
 check(
   hasDeclaration(splitBody, "min-width", "0"),
   "The .split > * rule must set min-width: 0.",
