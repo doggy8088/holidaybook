@@ -92,6 +92,8 @@ func parseArgs(args []string) (options, string, error) {
 	flags.BoolVar(&opts.json, "json", false, "")
 	flags.BoolVar(&opts.version, "version", false, "")
 	flags.BoolVar(&opts.help, "help", false, "")
+	// Register -h explicitly; flag.ErrHelp would otherwise bypass the argument checks below.
+	flags.BoolVar(&opts.help, "h", false, "")
 
 	normalized, err := normalizeArgs(args)
 	if err != nil {
@@ -150,7 +152,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintf(w, "  --base-url URL     覆寫資料來源，預設 %s\n", holiday.DefaultBaseURL)
 	fmt.Fprintf(w, "  --timeout DURATION 覆寫連線逾時，預設 %s\n", holiday.DefaultTimeout)
 	fmt.Fprintln(w, "  --version          顯示版本")
-	fmt.Fprintln(w, "  --help             顯示此說明")
+	fmt.Fprintln(w, "  --help, -h         顯示此說明")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "結束碼：0 成功、1 執行期錯誤、2 參數錯誤")
 }

@@ -123,7 +123,7 @@ func TestRunVersion(t *testing.T) {
 }
 
 func TestRunHelpFlags(t *testing.T) {
-	for _, args := range [][]string{{"--help"}, {"-h"}, {"-help"}} {
+	for _, args := range [][]string{{"--help"}, {"-h"}, {"-help"}, {"--h"}} {
 		var stdout, stderr bytes.Buffer
 		exitCode := Run(context.Background(), args, &stdout, &stderr, "test")
 		if exitCode != ExitOK {
@@ -131,6 +131,9 @@ func TestRunHelpFlags(t *testing.T) {
 		}
 		if !strings.Contains(stdout.String(), "用法：holidaybook") || stderr.Len() != 0 {
 			t.Fatalf("Run(%v) stdout = %q stderr = %q", args, stdout.String(), stderr.String())
+		}
+		if !strings.Contains(stdout.String(), "-h") {
+			t.Fatalf("Run(%v) usage output does not document -h: %q", args, stdout.String())
 		}
 	}
 }
@@ -145,6 +148,8 @@ func TestRunUsageErrors(t *testing.T) {
 		{name: "two dates", args: []string{"--json", "2026-10-10", "2026-10-11"}, want: `"code":"usage"`},
 		{name: "unknown flag", args: []string{"--json", "--nope"}, want: `"code":"usage"`},
 		{name: "help with date", args: []string{"--json", "--help", "2026-10-10"}, want: `"code":"usage"`},
+		{name: "short help with date", args: []string{"--json", "-h", "2026-10-10"}, want: `"code":"usage"`},
+		{name: "short help with date reversed", args: []string{"--json", "2026-10-10", "-h"}, want: `"code":"usage"`},
 		{name: "bad base url", args: []string{"--json", "--base-url", "ftp://example.com", "2026-10-10"}, want: `"code":"invalid_configuration"`},
 		{name: "bad timeout", args: []string{"--json", "--timeout", "0s", "2026-10-10"}, want: `"code":"invalid_configuration"`},
 	}
