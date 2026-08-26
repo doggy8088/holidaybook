@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台灣假期速查｜給人與代理人的假日狀態 API</title>
+<meta name="description" content="輸入日期即可查詢台灣是否放假，並提供對應的靜態 JSON API、CLI 與 curl 範例，方便開發者與 AI 代理人整合。資料每日自動更新，免安裝、免金鑰。">
+<link rel="canonical" href="https://holiday.gh.miniasp.com/">
+<meta name="theme-color" content="#0d7a68" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1210" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="台灣假期速查">
+<meta property="og:title" content="台灣假期速查｜給人與代理人的假日狀態 API">
+<meta property="og:description" content="輸入日期即可查詢台灣是否放假，並提供對應的靜態 JSON API、CLI 與 curl 範例，方便開發者與 AI 代理人整合。">
+<meta property="og:url" content="https://holiday.gh.miniasp.com/">
+<meta property="og:locale" content="zh_TW">
+
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "台灣假期資料",
+  "description": "台灣行政機關辦公日曆表衍生的每日、每月、每年假期狀態 JSON 資料集。",
+  "url": "https://holiday.gh.miniasp.com/",
+  "license": "https://data.taipei/",
+  "creator": {
+    "@type": "Organization",
+    "name": "臺北市政府"
+  },
+  "distribution": {
+    "@type": "DataDownload",
+    "encodingFormat": "application/json",
+    "contentUrl": "https://holiday.gh.miniasp.com/{YYYY-MM-DD}.json"
+  }
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要內容</a>
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="brand" href="#main">
+      <span class="brand__mark">台灣假期速查</span>
+      <span class="brand__tagline">Taiwan Holiday Lookup</span>
+    </a>
+    <nav class="site-nav" aria-label="主要導覽">
+      <ul>
+        <li><a href="#lookup">查詢</a></li>
+        <li><a href="#cli">CLI／curl</a></li>
+        <li><a href="#api">API 說明</a></li>
+        <li><a href="https://github.com/doggy8088/holidaybook">GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero container" id="lookup" aria-labelledby="lookup-heading">
+    <div class="hero__intro">
+      <p class="hero__eyebrow">每日更新的靜態 JSON API</p>
+      <h1 id="lookup-heading">今天，放假嗎？</h1>
+      <p class="hero__lede">輸入任一日期，立即查出台灣的放假狀態、假期名稱與說明。同一份資料也能直接被程式、CLI 或 AI 代理人查詢。</p>
+    </div>
+
+    <noscript>
+      <p class="notice notice--empty">此查詢工具需要啟用 JavaScript 才能運作。你仍可直接開啟對應的 JSON 網址查詢，例如
+        <code>https://holiday.gh.miniasp.com/2025-07-20.json</code>。</p>
+    </noscript>
+
+    <form class="query-card query-form" id="query-form">
+      <div class="query-form__field">
+        <label for="date-input">查詢日期</label>
+        <div class="date-step">
+          <button type="button" class="icon-btn" id="prev-day" aria-label="查詢前一天">‹</button>
+          <input
+            type="date"
+            id="date-input"
+            name="date"
+            required
+            pattern="\d{4}-\d{2}-\d{2}"
+            autocomplete="off"
+          >
+          <button type="button" class="icon-btn" id="next-day" aria-label="查詢後一天">›</button>
+        </div>
+      </div>
+      <div class="query-form__actions">
+        <button type="submit" class="btn">查詢</button>
+        <button type="button" class="btn btn--ghost" id="today-btn">回到今天</button>
+      </div>
+    </form>
+
+    <div class="quick-dates" aria-label="快速查詢">
+      <button type="button" class="btn btn--ghost btn--small" data-offset="0">今天</button>
+      <button type="button" class="btn btn--ghost btn--small" data-offset="1">明天</button>
+      <button type="button" class="btn btn--ghost btn--small" data-offset="7">下週同一天</button>
+    </div>
+
+    <div class="result" id="result" data-state="idle" role="status" aria-live="polite">
+      <p class="result__state result__state--idle">選好日期後按下「查詢」，結果會顯示在這裡。</p>
+
+      <p class="result__state result__state--loading"><span class="spinner" aria-hidden="true"></span>查詢中…</p>
+
+      <div class="result__state result__state--error">
+        <p class="notice notice--error" id="error-message"></p>
+      </div>
+
+      <div class="result__state result__state--empty">
+        <p class="notice notice--empty" id="empty-message"></p>
+      </div>
+
+      <div class="result__state result__state--success">
+        <div class="status-row">
+          <span class="status-date" id="result-date"></span>
+          <span class="badge" id="result-badge"></span>
+        </div>
+        <dl class="result-detail">
+          <dt>假期名稱</dt>
+          <dd id="result-name">-</dd>
+          <dt>分類</dt>
+          <dd id="result-category">-</dd>
+          <dt>說明</dt>
+          <dd id="result-description">-</dd>
+        </dl>
+        <details class="raw-json">
+          <summary>檢視原始 JSON</summary>
+          <div class="code-block">
+            <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="result-raw">複製</button>
+            <pre><code id="result-raw"></code></pre>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container" id="cli" aria-labelledby="cli-heading">
+    <div class="split">
+      <div>
+        <div class="section__header">
+          <h2 id="cli-heading">命令列與 curl 範例</h2>
+          <p class="section__lede">同一份資料可以在終端機、腳本或 CI 流程中直接查詢，不需要另外申請金鑰。</p>
+        </div>
+
+        <p>若已安裝 <code>holidaybook</code> CLI：</p>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="cli-example-1">複製</button>
+          <pre><code id="cli-example-1">holidaybook 2025-07-20</code></pre>
+        </div>
+        <p class="sample-output__label">輸出：</p>
+        <pre class="sample-output">2025-07-20：放假
+類別：星期六、星期日</pre>
+
+        <p>加上 <code>--json</code> 取得機器可讀的輸出，方便串接腳本：</p>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="cli-example-2">複製</button>
+          <pre><code id="cli-example-2">holidaybook --json 2025-07-20</code></pre>
+        </div>
+        <p class="sample-output__label">輸出：</p>
+        <pre class="sample-output">{"date":"2025-07-20","isHoliday":true,"name":"","category":"星期六、星期日","description":""}</pre>
+
+        <p>沒有安裝 CLI 的話，直接用 <code>curl</code> 讀取靜態 JSON 也可以：</p>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="curl-example">複製</button>
+          <pre><code id="curl-example">curl -fsS https://holiday.gh.miniasp.com/2025-07-20.json</code></pre>
+        </div>
+      </div>
+
+      <div>
+        <div class="section__header">
+          <h2>給 AI 代理人的查詢慣例</h2>
+          <p class="section__lede">將日期代入路徑即可，不需要額外的驗證流程或請求標頭。</p>
+        </div>
+        <div class="code-block">
+          <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="agent-example">複製</button>
+          <pre><code id="agent-example">GET https://holiday.gh.miniasp.com/{YYYY-MM-DD}.json
+
+isHoliday = 1 表示當天放假
+isHoliday = 0 表示當天正常上班、上課
+name、holidaycategory、description 可能為空字串</code></pre>
+        </div>
+        <p class="section__lede">建議代理人以 <code>isHoliday</code> 欄位為準，不要用「是否為週末」自行推算，因為補班日與國定假日調整都會覆寫一般的週末規則。CLI 的 <code>--json</code> 會把同一份資料正規化成 <code>date</code>（<code>YYYY-MM-DD</code>）、布林值 <code>isHoliday</code> 與 <code>category</code>；直接讀取靜態 JSON 時則是 <code>YYYYMMDD</code>、<code>0</code>／<code>1</code> 與 <code>holidaycategory</code>。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container" id="api" aria-labelledby="api-heading">
+    <div class="section__header">
+      <h2 id="api-heading">API 說明（機器可讀）</h2>
+      <p class="section__lede">單日、單月、單年三種路徑共用同一個資料結構；月與年的回應是物件陣列。</p>
+    </div>
+
+    <dl class="endpoint-list">
+      <dt>單日</dt>
+      <dd><code>/{YYYY-MM-DD}.json</code> 例如 <code>/2025-07-20.json</code></dd>
+      <dt>單月</dt>
+      <dd><code>/{YYYY-MM}.json</code> 例如 <code>/2025-07.json</code></dd>
+      <dt>單年</dt>
+      <dd><code>/{YYYY}.json</code> 例如 <code>/2025.json</code></dd>
+    </dl>
+
+    <table class="field-table">
+      <caption>單日 JSON 欄位</caption>
+      <thead>
+        <tr>
+          <th scope="col">欄位</th>
+          <th scope="col">型別</th>
+          <th scope="col">說明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>date</code></td>
+          <td>string</td>
+          <td>日期，格式為 <code>YYYYMMDD</code>。</td>
+        </tr>
+        <tr>
+          <td><code>isHoliday</code></td>
+          <td>0 或 1</td>
+          <td>1 表示放假，0 表示正常上班上課。請直接採用此值，不要自行以星期幾推算。</td>
+        </tr>
+        <tr>
+          <td><code>name</code></td>
+          <td>string</td>
+          <td>國定假日或紀念日名稱，平日與例假日通常為空字串。</td>
+        </tr>
+        <tr>
+          <td><code>holidaycategory</code></td>
+          <td>string</td>
+          <td>假期分類，例如「星期六、星期日」或「放假之紀念日及節日」。</td>
+        </tr>
+        <tr>
+          <td><code>description</code></td>
+          <td>string</td>
+          <td>補充說明，可能為空字串。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>需要留意的例外</h3>
+    <ul class="remark-list">
+      <li>軍人節只有軍人放假，本資料將它標記為非假日（<code>isHoliday: 0</code>）。</li>
+      <li>勞動節只有勞工放假，一般行政機關與學校照常上班上課。</li>
+      <li>補班日會顯示為正常上班日，即使落在週六、週日。</li>
+      <li>超出來源日曆表已公告範圍的日期（通常是尚未公告的年度），會先以正常上班日呈現，實際放假規則仍以政府公告為準。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <p>資料來源：<a href="https://data.taipei/dataset/detail?id=c30ca421-d935-4faa-b523-9c175c8de738">臺北市政府行政機關辦公日曆表</a>，經 GitHub Actions 每日重新產生。</p>
+    <p><a href="https://github.com/doggy8088/holidaybook">原始碼與議題回報</a></p>
+  </div>
+</footer>
+
+<script src="app.js" defer></script>
+</body>
+</html>
