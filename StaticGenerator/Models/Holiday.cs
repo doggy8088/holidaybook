@@ -55,7 +55,17 @@ public enum IsHoliday { 否, 是 };
 
 public partial class Holiday
 {
-	public static Holiday? FromJson(string json) => JsonSerializer.Deserialize<Holiday>(json, Converter.Settings);
+	// Upper bound for external API payloads; the real dataset is well under 1 MB
+	public const int MaxJsonLength = 10_000_000;
+
+	public static Holiday? FromJson(string json)
+	{
+		if (json.Length > MaxJsonLength)
+		{
+			throw new JsonException($"JSON payload of {json.Length} characters exceeds the maximum allowed size of {MaxJsonLength}.");
+		}
+		return JsonSerializer.Deserialize<Holiday>(json, Converter.Settings);
+	}
 }
 
 public static class Serialize
@@ -68,6 +78,8 @@ internal static class Converter
 {
 	public static readonly JsonSerializerOptions Settings = new(JsonSerializerDefaults.Web)
 	{
+		// Cap nesting depth well below the 64-token default to blunt deeply nested payload attacks
+		MaxDepth = 32,
 		Converters =
 		{
 			TimezoneConverter.Singleton,

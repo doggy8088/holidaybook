@@ -21,12 +21,15 @@ env:
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
 
+# Default: read-only. The write scope is granted only to the job that pushes data.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   generate-data:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
