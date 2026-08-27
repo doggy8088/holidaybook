@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const config = require('./config');
 const { resolveTarget } = require('./platformMatrix');
@@ -55,22 +55,30 @@ function expectedVersionString() {
  */
 function verifyBinaryExecutes(binPath, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? config.VERIFY_TIMEOUT_MS;
-  const result = spawnSync(binPath, ['--version'], {
-    timeout: timeoutMs,
-    windowsHide: true,
-  });
-  if (result.error) {
-    throw new VerificationError(`Failed to execute ${binPath} --version: ${result.error.message}`);
+  let stdout;
+  try {
+    stdout = execFileSync(path.resolve(binPath), ['--version'], {
+      timeout: timeoutMs,
+      windowsHide: true,
+      shell: false,
+      // Capture stderr rather than letting the child's output leak into
+      // npm's install log, and never let it block waiting on stdin.
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    // execFileSync throws for spawn failures (ENOENT/EACCES), for timeouts
+    // (killed by signal, so err.status is null) and for any nonzero exit.
+    if (typeof err.status === 'number') {
+      const stderrText = err.stderr ? err.stderr.toString('utf8').trim() : '';
+      throw new VerificationError(
+        `Verification failed: ${binPath} --version exited with status ${err.status}${
+          stderrText ? ` (${stderrText})` : ''
+        }`
+      );
+    }
+    throw new VerificationError(`Failed to execute ${binPath} --version: ${err.message}`);
   }
-  if (typeof result.status !== 'number' || result.status !== 0) {
-    const stderrText = result.stderr ? result.stderr.toString('utf8').trim() : '';
-    throw new VerificationError(
-      `Verification failed: ${binPath} --version exited with status ${result.status}${
-        stderrText ? ` (${stderrText})` : ''
-      }`
-    );
-  }
-  const stdoutText = result.stdout ? result.stdout.toString('utf8').trim() : '';
+  const stdoutText = stdout ? stdout.toString('utf8').trim() : '';
   const expected = opts.expectedVersionString ?? expectedVersionString();
   if (stdoutText !== expected) {
     throw new VerificationError(
