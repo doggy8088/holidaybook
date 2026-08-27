@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   dependency-scan:
@@ -107,9 +106,39 @@ jobs:
           fetch-depth: 0  # Fetch full history for secret scanning
 
       - name: Run TruffleHog OSS
-        uses: trufflesecurity/trufflehog@main
+        # Pinned to the v3.97.1 release commit; do not track a mutable branch like @main
+        uses: trufflesecurity/trufflehog@20652fbbdefffcdaa493a5bf57ab2ac6b1db715b
         with:
           path: ./
           base: master
           head: HEAD
           extra_args: --debug --only-verified
+
+  vulnerability-gate:
+    runs-on: ubuntu-latest
+    name: Vulnerability Gate
+    needs: dependency-scan
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Fail on vulnerable packages
+        run: |
+          set -o pipefail
+          cd StaticGenerator
+          dotnet restore
+          cd ../StaticGenerator.Tests
+          dotnet restore
+          cd ..
+          cd StaticGenerator
+          OUTPUT=$(dotnet list package --vulnerable --include-transitive)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -qE '(Critical|High)'; then
+            echo "::error::Vulnerable packages with Critical or High severity were detected"
+            exit 1
+          fi

@@ -1,4 +1,5 @@
 using Xunit;
+using HolidayBook.StaticGenerator;
 using HolidayBook.StaticGenerator.Models;
 using System.Text.Json;
 using HolidayBook.StaticGenerator.Configuration;
@@ -15,11 +16,22 @@ public class SecurityTests
                        string.Join(",", Enumerable.Repeat("{\"_id\":1,\"date\":\"20240101\",\"name\":\"Test\",\"isHoliday\":0,\"holidaycategory\":\"\",\"description\":\"\"}", 10000)) + 
                        "] } }";
 
-        // Act & Assert - This should be handled gracefully
+        // Act & Assert - Rejected before deserialization by the size limit,
+        // or by schema/type validation during deserialization
         var ex = Assert.Throws<JsonException>(() => Holiday.FromJson(largeJson));
         
-        // Note: This test demonstrates the lack of size limits in JSON deserialization
-        // In a secure implementation, we should have size limits
+        // The implementation now enforces a payload size limit (Holiday.MaxJsonLength)
+        // and caps nesting depth (MaxDepth = 32) in Converter.Settings
+    }
+
+    [Fact]
+    public void JsonDeserialization_ShouldRejectOversizedPayload_SecurityTest()
+    {
+        // Arrange - Payload exceeding Holiday.MaxJsonLength must be rejected outright
+        var oversizedJson = new string(' ', Holiday.MaxJsonLength + 1);
+
+        // Act & Assert
+        Assert.Throws<JsonException>(() => Holiday.FromJson(oversizedJson));
     }
 
     [Fact]
@@ -88,47 +100,64 @@ public class SecurityTests
     }
 
     [Fact]
-    public void PathValidation_ShouldPreventDirectoryTraversal_SecurityTest()
+    public void OutputDirectory_ShouldRejectDangerousPaths_SecurityTest()
     {
-        // Arrange
-        var basePath = "/safe/directory";
-        var maliciousFileName = "../../../etc/passwd";
+        // Arrange - Paths that would cause catastrophic Directory.Delete() calls
+        var dangerousPaths = new[]
+        {
+            "/",                          // Filesystem root
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), // User home
+            Directory.GetCurrentDirectory(), // Application directory itself
+        };
 
-        // Act & Assert
-        // This test demonstrates the lack of path validation
-        // The current implementation would be vulnerable to directory traversal
-        var combinedPath = Path.Combine(basePath, maliciousFileName);
-        var fullPath = Path.GetFullPath(combinedPath);
-        
-        // This shows the vulnerability - the path escapes the intended directory
-        Assert.False(fullPath.StartsWith(Path.GetFullPath(basePath)));
+        foreach (var dangerousPath in dangerousPaths)
+        {
+            // Act & Assert
+            var ex = Assert.Throws<ArgumentException>(() =>
+                Program.ValidateConfiguration(BuildValidSettings(generation: gen => gen.OutputDirectory = dangerousPath)));
+            Assert.Contains("must not resolve", ex.Message);
+        }
+
+        // The designed repo-relative output directory is still accepted
+        var valid = BuildValidSettings(generation: gen => gen.OutputDirectory = "../docs");
+        Program.ValidateConfiguration(valid);
     }
 
     [Fact]
     public void ConfigurationValidation_ShouldRejectMaliciousUrls_SecurityTest()
     {
-        // Arrange
+        // Act & Assert - Malicious URL schemes must be rejected
+        var ex = Assert.Throws<ArgumentException>(() =>
+            Program.ValidateConfiguration(BuildValidSettings(dataSource: ds => ds.ApiUrl = "javascript:alert('xss')")));
+        Assert.Contains("https://", ex.Message);
+
+        // Test data path traversal must be rejected
+        Assert.Throws<ArgumentException>(() =>
+            Program.ValidateConfiguration(BuildValidSettings(dataSource: ds => ds.TestDataPath = "../../../etc/passwd")));
+
+        // A legitimate https URL with a relative test data path is accepted
+        Program.ValidateConfiguration(BuildValidSettings());
+    }
+
+    private static AppSettings BuildValidSettings(Action<DataSourceSettings>? dataSource = null, Action<GenerationSettings>? generation = null)
+    {
         var settings = new AppSettings
         {
             DataSource = new DataSourceSettings
             {
-                ApiUrl = "javascript:alert('xss')", // Malicious URL
-                TestDataPath = "../../../etc/passwd" // Path traversal
+                ApiUrl = "https://data.taipei/api/v1/dataset/964e936d-d971-4567-a467-aa67b930f98e",
+                TestDataPath = "test-data.json"
             },
             Generation = new GenerationSettings
             {
-                OutputDirectory = "../../../tmp/evil", // Path traversal
+                OutputDirectory = "../docs",
                 StartDate = "2024-01-01",
                 YearsToGenerate = 2
             }
         };
-
-        // Act & Assert
-        // The current validation doesn't check for malicious URLs or paths
-        // These should be rejected in a secure implementation
-        Assert.Equal("javascript:alert('xss')", settings.DataSource.ApiUrl);
-        Assert.Equal("../../../etc/passwd", settings.DataSource.TestDataPath);
-        Assert.Equal("../../../tmp/evil", settings.Generation.OutputDirectory);
+        dataSource?.Invoke(settings.DataSource);
+        generation?.Invoke(settings.Generation);
+        return settings;
     }
 
     [Fact]
@@ -159,22 +188,22 @@ public class SecurityTests
     }
 
     [Theory]
-    [InlineData("https://malicious-site.com/api")]
-    [InlineData("http://localhost:8080/admin")]
-    [InlineData("ftp://internal-server/data")]
-    [InlineData("file:///etc/passwd")]
-    public void ApiUrl_ShouldValidateScheme_SecurityTest(string maliciousUrl)
+    [InlineData("http://localhost:8080/admin", false)]   // plaintext HTTP is rejected
+    [InlineData("ftp://internal-server/data", false)]    // non-HTTP scheme is rejected
+    [InlineData("file:///etc/passwd", false)]            // local file access is rejected
+    [InlineData("javascript:alert('xss')", false)]       // script scheme is rejected
+    [InlineData("https://data.taipei/api/v1/dataset", true)] // HTTPS is allowed
+    public void ApiUrl_ShouldValidateScheme_SecurityTest(string url, bool shouldPass)
     {
-        // Arrange & Act
-        var isValid = Uri.TryCreate(maliciousUrl, UriKind.Absolute, out var uri);
-
-        // Assert
-        if (isValid)
+        // Act & Assert - only absolute https:// URLs pass validation
+        if (shouldPass)
         {
-            // Current implementation doesn't validate URL schemes
-            // In a secure implementation, we should only allow HTTPS
-            Assert.True(uri.Scheme == "https" || uri.Scheme == "http" || 
-                       uri.Scheme == "ftp" || uri.Scheme == "file");
+            Program.ValidateConfiguration(BuildValidSettings(dataSource: ds => ds.ApiUrl = url));
+        }
+        else
+        {
+            Assert.Throws<ArgumentException>(() =>
+                Program.ValidateConfiguration(BuildValidSettings(dataSource: ds => ds.ApiUrl = url)));
         }
     }
 

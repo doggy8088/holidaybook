@@ -168,6 +168,15 @@ class Program
     {
         if (_logger == null) throw new InvalidOperationException("Logger not initialized");
 
+        var fullPath = Path.GetFullPath(outputDir);
+        var root = Path.GetPathRoot(fullPath);
+        if (string.Equals(fullPath, root, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fullPath, Directory.GetCurrentDirectory(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Refusing to use a dangerous output directory: '{outputDir}' resolves to '{fullPath}'.");
+        }
+
         if (Directory.Exists(outputDir))
         {
             _logger.LogInformation("Cleaning existing output directory: {Directory}", outputDir);
@@ -294,13 +303,41 @@ class Program
         };
     }
 
-    private static void ValidateConfiguration(AppSettings settings)
+    internal static void ValidateConfiguration(AppSettings settings)
     {
         if (string.IsNullOrWhiteSpace(settings.DataSource.ApiUrl))
             throw new ArgumentException("DataSource.ApiUrl is required in configuration");
 
+        // Only absolute HTTPS URLs are allowed for the data source
+        if (!Uri.TryCreate(settings.DataSource.ApiUrl, UriKind.Absolute, out var apiUri) ||
+            !string.Equals(apiUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"DataSource.ApiUrl '{settings.DataSource.ApiUrl}' must be an absolute https:// URL");
+        }
+
+        // The fallback path must stay inside the working tree (no parent traversal)
+        if (!string.IsNullOrWhiteSpace(settings.DataSource.TestDataPath))
+        {
+            var testDataPath = Path.GetFullPath(settings.DataSource.TestDataPath);
+            var basePath = Path.GetFullPath(Directory.GetCurrentDirectory());
+            if (!testDataPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"DataSource.TestDataPath '{settings.DataSource.TestDataPath}' must resolve inside the application directory");
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(settings.Generation.OutputDirectory))
             throw new ArgumentException("Generation.OutputDirectory is required in configuration");
+
+        // The output directory must not resolve to a filesystem root, the user profile, or the app directory itself
+        var outputRoot = Path.GetFullPath(settings.Generation.OutputDirectory);
+        var rootPath = Path.GetPathRoot(outputRoot);
+        if (string.Equals(outputRoot, rootPath, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(outputRoot, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(outputRoot, Path.GetFullPath(Directory.GetCurrentDirectory()), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Generation.OutputDirectory '{settings.Generation.OutputDirectory}' must not resolve to '{outputRoot}'");
+        }
 
         if (string.IsNullOrWhiteSpace(settings.Generation.StartDate))
             throw new ArgumentException("Generation.StartDate is required in configuration");

@@ -1,5 +1,15 @@
 # 資安弱點分析報告 (Security Vulnerability Analysis)
 
+> **狀態更新 (2026-08-28)**: 下列問題已在本 PR 中修復 —
+> ✅ System.Text.Json 已明確升級至 9.0.19（CVE 已消除，`dotnet list --vulnerable` 全數通過）
+> ✅ Microsoft.Extensions.\* 全部升級至 9.0.19
+> ✅ JSON 反序列化加入 10 MB 大小上限與 MaxDepth=32
+> ✅ 設定驗證強制僅允許 https API URL、限制測試資料路徑、阻擋危險輸出目錄
+> ✅ `generate-data.yml` 權限改為最小化（僅提交 job 有 `contents: write`）
+> ✅ SendGrid 通知改用 env 變數 + jq 組 JSON，避免注入
+> ✅ TruffleHog 以 v3.97.1 commit SHA 固定，新增 Vulnerability Gate job
+> ✅ 測試套件升級（xunit 2.9.3 / runner 3.1.5 / Test SDK 17.14.1），並新增安全測試（20/20 通過）
+
 ## 概述 (Overview)
 這份報告分析了 holidaybook 專案中可能存在的資安弱點。專案是一個從台北市開放資料平台獲取假期資訊並生成靜態 JSON API 的應用程式。
 
