@@ -387,3 +387,34 @@ test('verifyBinaryExecutes: performs a genuine real host-native executable verif
     verifyBinaryExecutes(process.execPath, { expectedVersionString: 'definitely-not-the-real-version' });
   }, VerificationError);
 });
+
+test(
+  'verifyBinaryExecutes: a binary that exits nonzero is rejected (with its stderr reported)',
+  { skip: process.platform === 'win32' ? 'shebang scripts are not directly executable on Windows' : false },
+  () => {
+    assert.throws(
+      () => {
+        verifyBinaryExecutes(path.join(FIXTURE_DIR, 'version-fail'), { expectedVersionString: 'irrelevant' });
+      },
+      (err) => {
+        assert.ok(err instanceof VerificationError);
+        assert.match(err.message, /exited with status 1/);
+        assert.match(err.message, /simulated broken binary/);
+        return true;
+      }
+    );
+  }
+);
+
+test('verifyBinaryExecutes: a binary that cannot be executed at all is rejected', () => {
+  assert.throws(
+    () => {
+      verifyBinaryExecutes(path.join(tmpDir, 'definitely-not-a-real-binary'), { expectedVersionString: 'irrelevant' });
+    },
+    (err) => {
+      assert.ok(err instanceof VerificationError);
+      assert.match(err.message, /Failed to execute /);
+      return true;
+    }
+  );
+});
