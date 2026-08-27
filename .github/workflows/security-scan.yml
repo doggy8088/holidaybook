@@ -54,7 +54,7 @@ jobs:
           dotnet list package --outdated --format json >> ../outdated-report-tests.json || true
 
       - name: Upload vulnerability reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-reports
           path: |
@@ -88,7 +88,7 @@ jobs:
           dotnet test --configuration Release --logger "trx;LogFileName=security-test-results.trx" --filter "SecurityTests"
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: security-test-results
