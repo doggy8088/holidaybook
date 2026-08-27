@@ -13,7 +13,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.19" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.19" />
     <!-- Explicit reference to keep System.Text.Json on a patched, non-vulnerable version -->
-    <PackageReference Include="System.Text.Json" Version="9.0.19" />
+    <PackageReference Include="System.Text.Json" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup>
