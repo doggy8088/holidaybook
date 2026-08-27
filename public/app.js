@@ -357,6 +357,14 @@
     queryDate(dateInput.value, "push");
   });
 
+  if (dateInput) {
+    dateInput.addEventListener("change", function () {
+      if (isValidDateStr(dateInput.value)) {
+        queryDate(dateInput.value, "push");
+      }
+    });
+  }
+
   prevBtn.addEventListener("click", function () {
     var next = addDays(currentInputDate(), -1);
     dateInput.value = next;

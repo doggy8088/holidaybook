@@ -412,6 +412,21 @@ test("changed dates push once while same-date submissions do not push", async ()
   assert.equal(app.pushCalls, 1);
 });
 
+test("selecting a date triggers query automatically via change event", async () => {
+  const app = createHarness();
+  await settle();
+
+  app.elements["date-input"].value = "2026-08-25";
+  app.elements["date-input"].dispatch("change");
+  await settle();
+
+  assert.equal(app.history.length, 2);
+  assert.equal(app.pushCalls, 1);
+  assert.match(app.href, /[?&]date=2026-08-25(?:&|#|$)/);
+  assert.equal(app.fetchCalls[app.fetchCalls.length - 1], "2026-08-25.json");
+  assert.equal(app.elements["result-name"].textContent, "data for 2026-08-25");
+});
+
 test("Back and Forward restore the date and rendered data without trapping history", async () => {
   const app = createHarness();
   await settle();
