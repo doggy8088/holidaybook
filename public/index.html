@@ -294,6 +294,7 @@
         </div>
         <p class="agent-skill__detail">技能載入後會依序自動判斷環境：本機已安裝 <code>holidaytw</code> 就直接使用；若有 Node.js／npm，會先使用已正式發布且已確認名稱所有權的官方 <code>npx --yes holidaytw</code>；失敗後才依作業系統自動切換成上方的 macOS／Linux 或 Windows 官方一行安裝指令；最後才會退回直接呼叫 HTTPS JSON API 讀取資料。</p>
         <p class="agent-skill__detail">如果想一次安裝到所有支援的代理人，可以改用 <code>npx skills add doggy8088/holidaybook --all</code>；預設指令則會先讓你挑選要安裝的代理人與安裝範圍。</p>
+        <p class="agent-skill__detail">若只想安裝給特定代理人（例如 GitHub Copilot）、固定安裝到「這個專案」並跳過互動確認，可以執行 <code>npx skills add doggy8088/holidaybook --agent github-copilot --yes</code>，指令會在當前專案直接產生 <code>.agents/skills/query-taiwan-holiday/</code> 與 <code>skills-lock.json</code>，適合腳本或 CI 等非互動式環境使用。</p>
       </div>
     </div>
   </section>

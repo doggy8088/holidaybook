@@ -574,6 +574,15 @@ check(
   'The Agent Skill subsection must not show "--all" placed before the repository argument.',
 );
 
+/* The optional single-agent, non-interactive project install is documented
+   verbatim with --agent and --yes so the example stays copy-safe. */
+const COPILOT_INSTALL_COMMAND =
+  "npx skills add doggy8088/holidaybook --agent github-copilot --yes";
+check(
+  agentSkillBlock.includes(COPILOT_INSTALL_COMMAND),
+  `The Agent Skill subsection must document the exact GitHub Copilot-only install example: "${COPILOT_INSTALL_COMMAND}".`,
+);
+
 /* The footnote must describe "latest release" dynamically so it never goes
    stale the moment a new version ships; no hard-coded version number. */
 check(

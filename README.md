@@ -165,6 +165,14 @@ npx skills add doggy8088/holidaybook
 
 `skills` 會掃描儲存庫並安裝根目錄 `skill/SKILL.md` 定義的技能，讓你選擇要安裝到「這個專案」（`.agents/skills/`）還是「全域」共用，並以 `skills-lock.json` 記錄安裝結果；要一次安裝到所有支援的代理人可加上 `--all`（例如 `npx skills add doggy8088/holidaybook --all`），之後可用 `npx skills update` 更新、`npx skills list` 檢視已安裝狀態。
 
+若只想安裝給特定代理人（例如 GitHub Copilot）、固定安裝到「這個專案」並跳過互動確認，可加上 `--agent` 與 `--yes`：
+
+```sh
+npx skills add doggy8088/holidaybook --agent github-copilot --yes
+```
+
+指令會在當前專案直接產生 `.agents/skills/query-taiwan-holiday/` 與 `skills-lock.json`，安裝目標只標記為 GitHub Copilot，適合腳本或 CI 等非互動式環境使用。
+
 任何支援 repository skills 的代理人都可以直接載入使用，範例提示（取自 `agents/openai.yaml` 的 `default_prompt`）：
 
 > Use `$query-taiwan-holiday` to check whether a specific Taiwan date is a holiday or workday and return structured data.
