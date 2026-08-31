@@ -476,10 +476,12 @@ check(
   'The CLI section must not reference the old "holidaybook" executable name.',
 );
 
-/* Agent Skill install path: a direct repo tree URL to the root skill/SKILL.md,
-   distinct from .github/skills, documented inside the install section. The
-   primary command must stay the plain "npx skills add ..." form -- never
-   "--all" by default, since that installs to every supported agent at once. */
+/* Agent Skill install path: the plain repository shorthand "owner/repo", which
+   the skills CLI resolves to the root skill/SKILL.md definition (recorded in
+   its skills-lock.json), distinct from the .github/skills copy, documented
+   inside the install section. The primary command must stay the plain
+   "npx skills add ..." form -- never "--all" by default, since that installs
+   to every supported agent at once. */
 const agentSkillBlock = elementBlock(installSection, "div", String.raw`id=["']agent-skill["']`);
 check(
   agentSkillBlock.length > 0,
@@ -499,7 +501,7 @@ check(
 );
 
 const AGENT_SKILL_COMMAND =
-  "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
+  "npx skills add doggy8088/holidaybook";
 const agentSkillCodeMatch = agentSkillBlock.match(
   /<code\b[^>]*\bid=["']agent-skill-install["'][^>]*>([\s\S]*?)<\/code>/i,
 );
@@ -559,17 +561,17 @@ check(
   "The Agent Skill subsection must mention the HTTPS JSON API fallback.",
 );
 
-/* The official Skills CLI documents --all after the repo URL; the wrong order
-   is checked for explicitly so a future edit cannot silently regress it. */
+/* The official Skills CLI documents --all after the repo shorthand; the wrong
+   order is checked for explicitly so a future edit cannot silently regress it. */
 const ALL_AGENTS_COMMAND =
-  "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill --all";
+  "npx skills add doggy8088/holidaybook --all";
 check(
   agentSkillBlock.includes(ALL_AGENTS_COMMAND),
   `The Agent Skill subsection must show the optional all-agents example in the documented argument order: "${ALL_AGENTS_COMMAND}".`,
 );
 check(
-  !/npx\s+skills\s+add\s+--all\s+https:\/\//i.test(agentSkillBlock),
-  'The Agent Skill subsection must not show "--all" placed before the repository URL.',
+  !/npx\s+skills\s+add\s+--all\s+\S/i.test(agentSkillBlock),
+  'The Agent Skill subsection must not show "--all" placed before the repository argument.',
 );
 
 /* The footnote must describe "latest release" dynamically so it never goes

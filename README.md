@@ -151,10 +151,19 @@ CLI 的 `--json` 輸出是穩定的代理人介面，欄位固定為：
 
 ### Repository skill
 
-專案內建可分享的 agent skill，共兩份行為一致的定義：
+專案內建可分享的 agent skill，儲存庫內共有三份行為一致的定義：
 
-- 根目錄（canonical）：[`skill/SKILL.md`](skill/SKILL.md)
+- 根目錄（canonical、發布來源）：[`skill/SKILL.md`](skill/SKILL.md)
 - Repository-scoped 副本：[`.github/skills/query-taiwan-holiday`](.github/skills/query-taiwan-holiday/SKILL.md)（含 `SKILL.md` 與 `agents/openai.yaml` 介面中繼資料）
+- 已安裝副本：[`.agents/skills/query-taiwan-holiday`](.agents/skills/query-taiwan-holiday/SKILL.md)，並以 [`skills-lock.json`](skills-lock.json) 記錄安裝來源（`doggy8088/holidaybook` 的 `skill/SKILL.md`）與內容雜湊
+
+Clone 本儲存庫後，`.agents/skills/` 底下的副本即可直接供支援 Agent Skills 的代理人（GitHub Copilot、Codex、Cursor、Gemini CLI 等）使用；要在其他專案安裝同一個 skill，可使用官方 `skills` CLI（[vercel-labs/skills](https://github.com/vercel-labs/skills)）執行：
+
+```sh
+npx skills add doggy8088/holidaybook
+```
+
+`skills` 會掃描儲存庫並安裝根目錄 `skill/SKILL.md` 定義的技能，讓你選擇要安裝到「這個專案」（`.agents/skills/`）還是「全域」共用，並以 `skills-lock.json` 記錄安裝結果；要一次安裝到所有支援的代理人可加上 `--all`（例如 `npx skills add doggy8088/holidaybook --all`），之後可用 `npx skills update` 更新、`npx skills list` 檢視已安裝狀態。
 
 任何支援 repository skills 的代理人都可以直接載入使用，範例提示（取自 `agents/openai.yaml` 的 `default_prompt`）：
 

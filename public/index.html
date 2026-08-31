@@ -287,13 +287,13 @@
 
       <div class="agent-skill" id="agent-skill" role="region" aria-labelledby="agent-skill-heading">
         <h3 id="agent-skill-heading" class="agent-skill__heading">或讓 AI 代理人透過 Agent Skill 自動安裝</h3>
-        <p class="agent-skill__note">支援 Agent Skills 的工具可以直接讀取這個指令。<code>skills</code> 會偵測目前環境支援哪些代理人，並讓你選擇要安裝到「這個專案」還是「全域」共用。指令直接指向本儲存庫根目錄的 <code>skill/SKILL.md</code>，可避免跟 <code>.github/skills</code> 底下既有的技能定義互相混淆。</p>
+        <p class="agent-skill__note">支援 Agent Skills 的工具可以直接讀取這個指令。<code>skills</code> 會掃描儲存庫並安裝根目錄 <code>skill/SKILL.md</code> 定義的技能，偵測目前環境支援哪些代理人，讓你選擇要安裝到「這個專案」還是「全域」共用；安裝結果會記錄在目標專案的 <code>skills-lock.json</code>，<code>.github/skills</code> 底下的 repository-scoped 副本不會被重複安裝。</p>
         <div class="code-block">
           <button type="button" class="btn btn--ghost btn--small code-block__copy" data-copy-target="agent-skill-install">複製</button>
-          <pre tabindex="0"><code id="agent-skill-install">npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill</code></pre>
+          <pre tabindex="0"><code id="agent-skill-install">npx skills add doggy8088/holidaybook</code></pre>
         </div>
         <p class="agent-skill__detail">技能載入後會依序自動判斷環境：本機已安裝 <code>holidaytw</code> 就直接使用；若有 Node.js／npm，會先使用已正式發布且已確認名稱所有權的官方 <code>npx --yes holidaytw</code>；失敗後才依作業系統自動切換成上方的 macOS／Linux 或 Windows 官方一行安裝指令；最後才會退回直接呼叫 HTTPS JSON API 讀取資料。</p>
-        <p class="agent-skill__detail">如果想一次安裝到所有支援的代理人，可以改用 <code>npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill --all</code>；預設指令則會先讓你挑選要安裝的代理人與安裝範圍。</p>
+        <p class="agent-skill__detail">如果想一次安裝到所有支援的代理人，可以改用 <code>npx skills add doggy8088/holidaybook --all</code>；預設指令則會先讓你挑選要安裝的代理人與安裝範圍。</p>
       </div>
     </div>
   </section>

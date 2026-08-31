@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "query-taiwan-holiday": {
+      "source": "doggy8088/holidaybook",
+      "sourceType": "github",
+      "skillPath": "skill/SKILL.md",
+      "computedHash": "0c1a18713af3de70512011b54055b09b77ba55fc4d4451e3c8141696afdf0361"
+    }
+  }
+}

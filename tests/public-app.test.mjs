@@ -68,7 +68,7 @@ function createHarness(
     "irm https://raw.githubusercontent.com/doggy8088/holidaybook/master/install.ps1 | iex";
   elements["npm-install"].textContent = "npm install -g holidaytw";
   elements["agent-skill-install"].textContent =
-    "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill";
+    "npx skills add doggy8088/holidaybook";
 
   /* Mirrors the no-JavaScript fallback: tab controls start hidden and without
      ARIA tab semantics, while both install panels remain visible. app.js owns
@@ -887,6 +887,6 @@ test("the Agent Skill copy button copies the exact skills CLI install command", 
   await settle();
   assert.equal(
     app.clipboardWrites[app.clipboardWrites.length - 1],
-    "npx skills add https://github.com/doggy8088/holidaybook/tree/master/skill"
+    "npx skills add doggy8088/holidaybook"
   );
 });
