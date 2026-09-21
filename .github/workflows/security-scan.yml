@@ -108,7 +108,7 @@ jobs:
       - name: Run TruffleHog OSS (PR diff scan)
         # Pinned to the v3.97.1 release commit; do not track a mutable branch like @main
         if: github.event_name == 'pull_request'
-        uses: trufflesecurity/trufflehog@363923b901c911a9164f50b6c423f47c15372b1c
+        uses: trufflesecurity/trufflehog@f714bf454f350590f4a24c3ddb1aef02c35bf5b6
         with:
           path: ./
           base: master
@@ -119,7 +119,7 @@ jobs:
         # On push/schedule events base == HEAD would make the diff scan a no-op
         # error, so scan the full repository history instead.
         if: github.event_name != 'pull_request'
-        uses: trufflesecurity/trufflehog@363923b901c911a9164f50b6c423f47c15372b1c
+        uses: trufflesecurity/trufflehog@f714bf454f350590f4a24c3ddb1aef02c35bf5b6
         with:
           path: ./
           extra_args: --debug --only-verified
