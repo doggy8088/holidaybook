@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   dependency-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     name: Dependency Security Scan
     
     steps:
@@ -65,7 +65,7 @@ jobs:
           retention-days: 30
 
   code-analysis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     name: Code Security Analysis
     
     steps:
@@ -96,7 +96,7 @@ jobs:
           retention-days: 30
 
   secrets-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     name: Secrets Detection
     
     steps:
@@ -125,7 +125,7 @@ jobs:
           extra_args: --debug --only-verified
 
   vulnerability-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     name: Vulnerability Gate
     needs: dependency-scan
     steps:
