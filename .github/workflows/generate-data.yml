@@ -71,7 +71,20 @@ jobs:
         id: generate
         run: |
           cd StaticGenerator
-          dotnet run --configuration Release
+          delays=(300 900 3600)
+          for attempt in 1 2 3 4; do
+            echo "=== Generation attempt $attempt of 4 ==="
+            if dotnet run --configuration Release; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              delay=${delays[$((attempt - 1))]}
+              echo "Attempt $attempt failed; retrying in $((delay / 60)) minutes..."
+              sleep "$delay"
+            fi
+          done
+          echo "Holiday data generation failed after 4 attempts"
+          exit 1
         continue-on-error: true
 
       - name: Commit and push changes
