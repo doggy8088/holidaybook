@@ -249,13 +249,13 @@ go build -o holidaytw ./cmd/holidaytw   # 建置執行檔
   git push origin v2.0.1
   ```
 
-- **每日資料更新**（`.github/workflows/generate-data.yml`）：每天 UTC 02:00（台灣時間上午 10 點）以及手動觸發時執行，還原、建置、測試並執行 `StaticGenerator`，若 `docs/` 有變更就自動 commit 並 push；產生失敗時，若已設定 SendGrid 相關 secrets 會寄出通知信，並讓該次工作流程回報失敗。
+- **每日資料更新**（`.github/workflows/generate-data.yml`）：每天 UTC 02:00（台灣時間上午 10 點）以及手動觸發時執行，還原、建置、測試並執行 `StaticGenerator`，若 `docs/` 有變更就自動 commit 並 push；推送成功後會再以 `workflow_dispatch` 明確觸發 `deploy-pages.yml`。產生失敗時，若已設定 SendGrid 相關 secrets 會寄出通知信，並讓該次工作流程回報失敗。
 - **GitHub Pages 部署**（`.github/workflows/deploy-pages.yml`）：`public/**`、`docs/*.json` 有變更或手動觸發時執行，將 `public/` 內容與 `docs/` 下的頂層 `*.json` 檔案一起組成 `_site/`，確認 `index.html` 與 `CNAME`（內容需為 `holiday.gh.miniasp.com`）存在後，部署到 GitHub Pages。
 
 ### GitHub Actions 所需設定
 
-- `PAT`：具備 `repo` 權限的 Personal Access Token，供 `generate-data.yml` 用來推送變更；沒有設定時會 fallback 使用預設的 `GITHUB_TOKEN`，但用 `GITHUB_TOKEN` 推送不會觸發 `deploy-pages.yml`，需改用手動觸發或設定 `PAT`。
 - `SENDGRID_API_KEY`、`NOTIFICATION_EMAIL`：設定後，資料產生失敗時會透過 SendGrid 寄出錯誤通知信；`FROM_EMAIL`（可選，預設為 `noreply@github.com`）。未設定這兩個必要 secrets 時只會在 log 中略過寄信，不影響失敗回報。
+- **不需要設定任何 Personal Access Token**：`generate-data.yml` 直接使用倉庫自動產生的 `GITHUB_TOKEN` 來 checkout 與推送 `docs/` 變更。由於用 `GITHUB_TOKEN` 推送不會自動觸發其他工作流程，該工作流程會在推送成功後以 `workflow_dispatch` 明確觸發 `deploy-pages.yml` 來完成部署。
 
 ## GitHub Pages 自訂網域
 

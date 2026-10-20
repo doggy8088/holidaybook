@@ -1,8 +1,13 @@
 name: Generate Holiday Data
 
-# NOTE: This workflow requires a Personal Access Token (PAT) with 'repo' scope
-# stored as a secret named 'PAT' to trigger the deploy-pages.yml workflow.
-# Without PAT, GITHUB_TOKEN won't trigger other workflows when pushing changes.
+# This workflow uses the repository's automatic GITHUB_TOKEN and no long-lived
+# Personal Access Token.
+#
+# A push made with GITHUB_TOKEN does not create a new workflow run, so the
+# generated-data commit cannot trigger deploy-pages.yml on its own. Instead this
+# workflow explicitly dispatches deploy-pages.yml (workflow_dispatch) after the
+# push, which GitHub always turns into a real run. `actions: write` is required
+# for that dispatch; `contents: write` is required for the commit and push.
 
 on:
   schedule:
@@ -30,12 +35,15 @@ jobs:
     runs-on: ubuntu-26.04
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          # Use PAT to trigger the Pages workflow, falling back to GITHUB_TOKEN.
-          token: ${{ secrets.PAT || github.token }}
+          # The automatic GITHUB_TOKEN is enough to check out and to push the
+          # regenerated docs/ files; no Personal Access Token is required.
+          token: ${{ github.token }}
+          persist-credentials: true
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -88,6 +96,7 @@ jobs:
         continue-on-error: true
 
       - name: Commit and push changes
+        id: commit
         if: steps.generate.outcome == 'success'
         run: |
           git config --local user.email "action@github.com"
@@ -96,10 +105,31 @@ jobs:
 
           if git diff --staged --quiet; then
             echo "No changes to commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "Auto-update holiday data - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Trigger Pages deployment
+        # A GITHUB_TOKEN push does not create a workflow run, so deploy-pages.yml
+        # has to be dispatched explicitly for the new docs/ files to be published.
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for attempt in 1 2 3; do
+            if gh workflow run deploy-pages.yml --ref "$GITHUB_REF_NAME"; then
+              echo "Dispatched deploy-pages.yml for $GITHUB_REF_NAME"
+              exit 0
+            fi
+            echo "Dispatch attempt $attempt failed; retrying in 15 seconds..."
+            sleep 15
+          done
+          echo "::error::Failed to dispatch deploy-pages.yml for $GITHUB_REF_NAME"
+          exit 1
 
       - name: Send error notification
         if: always() && steps.generate.outcome == 'failure'

@@ -135,7 +135,7 @@ Always reference these instructions first and fallback to search or bash command
 ### GitHub Actions Integration
 - **generate-data.yml**: Runs daily at 2 AM UTC to update holiday data
 - **deploy-pages.yml**: Automatically deploys docs/ directory to GitHub Pages
-- Requires `PAT` secret with repo scope for cross-workflow triggering
+- No `PAT` secret is required: `generate-data.yml` uses the automatic `GITHUB_TOKEN` and dispatches `deploy-pages.yml` explicitly via `workflow_dispatch`
 - Optional SendGrid configuration for error notifications via `SENDGRID_API_KEY` and `NOTIFICATION_EMAIL` secrets
 
 ### Important Notes
