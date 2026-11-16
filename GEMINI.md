@@ -4,7 +4,7 @@ This project is a static site generator that provides holiday information for Ta
 
 The main technologies used are:
 
-*   **.NET 8:** For the static site generator (`StaticGenerator`).
+*   **.NET 10:** For the static site generator (`StaticGenerator`).
 *   **GitHub Actions:** For daily data updates.
 *   **GitHub Pages:** For hosting the static JSON files.
 

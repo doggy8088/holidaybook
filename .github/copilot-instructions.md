@@ -5,7 +5,7 @@ Always reference these instructions first and fallback to search or bash command
 ## Working Effectively
 
 ### Prerequisites and Setup
-- .NET 8.0 SDK is required and pre-installed
+- .NET 10.0 SDK is required and pre-installed
 - Internet connection required for API access during data generation
 - Repository includes comprehensive unit tests using xUnit framework
 
@@ -83,7 +83,7 @@ Always reference these instructions first and fallback to search or bash command
 ├── .github/workflows/          # GitHub Actions for automation
 │   ├── deploy-pages.yml       # Deploys docs/ to GitHub Pages
 │   └── generate-data.yml      # Daily data generation workflow
-├── StaticGenerator/           # Main .NET 8 console application
+├── StaticGenerator/           # Main .NET 10 console application
 │   ├── Configuration/         # AppSettings.cs - configuration classes
 │   ├── Models/               # Holiday.cs - data models
 │   ├── Program.cs            # Main application logic and entry point
@@ -111,7 +111,7 @@ Always reference these instructions first and fallback to search or bash command
 - JSON structure includes: _id, date, name, isHoliday, holidaycategory, description
 
 ### Dependencies and Technologies
-- **.NET 8**: Console application runtime
+- **.NET 10**: Console application runtime
 - **Microsoft.Extensions.Configuration**: Configuration management
 - **Microsoft.Extensions.Logging**: Structured logging
 - **System.Text.Json**: JSON serialization with JsonStringEnumConverter
@@ -122,7 +122,7 @@ Always reference these instructions first and fallback to search or bash command
 ### Common Error Scenarios
 - **API Failure**: Application logs warnings and attempts fallback to test-data.json
 - **Configuration Issues**: Application validates configuration on startup and exits with error code 1
-- **Build Failures**: Usually due to missing .NET 8 SDK or network connectivity issues
+- **Build Failures**: Usually due to missing .NET 10 SDK or network connectivity issues
 - **Test Failures**: Indicates breaking changes to configuration or data models
 
 ### Development Workflow

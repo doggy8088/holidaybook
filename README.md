@@ -199,7 +199,7 @@ go vet ./...                     # 靜態檢查
 go build -o holidaytw ./cmd/holidaytw   # 建置執行檔
 ```
 
-### .NET 8 靜態產生器
+### .NET 10 靜態產生器
 
 1. 下載專案
 
