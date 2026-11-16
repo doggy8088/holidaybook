@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Holiday Book Static Generator is a .NET 8 console application that generates static JSON files containing Taiwan holiday information. It fetches data from the Taipei City Open Data API and creates individual daily files as well as monthly and yearly aggregations.
+The Holiday Book Static Generator is a .NET 10 console application that generates static JSON files containing Taiwan holiday information. It fetches data from the Taipei City Open Data API and creates individual daily files as well as monthly and yearly aggregations.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ The Holiday Book Static Generator is a .NET 8 console application that generates
 ## Building and Running
 
 ### Prerequisites
-- .NET 8.0 SDK
+- .NET 10.0 SDK
 - Internet connection (for API access)
 
 ### Build
